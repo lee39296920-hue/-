@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 const SUPABASE_URL = "https://wiuwuacfpqmhjyzqekzl.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpdXd1YWNmcHFtaGp5enFla3psIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNDEzMjAsImV4cCI6MjA4OTkxNzMyMH0.oTRdx_TmTa3EyyyNbqu_lY0seTM2tHsk_rhLY_yPH6Q";
@@ -134,6 +134,8 @@ export default function App() {
   const [hoContent, setHoContent]         = useState("");
   const [showHoForm, setShowHoForm]       = useState(false);
   const [editHoId, setEditHoId]           = useState(null);
+  const [isListening, setIsListening]     = useState(false);
+  const recognitionRef                    = useRef(null);
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 1800); };
 
@@ -165,6 +167,46 @@ export default function App() {
     }, 60000);
     return () => clearInterval(timer);
   }, []);
+
+  // 음성인식 함수
+  function startListening() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      showToast("이 브라우저는 음성인식을 지원하지 않아요 (Chrome 권장)");
+      return;
+    }
+    if (isListening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = "ko-KR";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognitionRef.current = recognition;
+    setIsListening(true);
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript.trim();
+      // "타이레놀 2개" 또는 "타이레놀 2" 패턴이면 약품명+수량 분리
+      const match = transcript.match(/^(.+?)\s+(\d+)\s*개?$/);
+      if (match) {
+        setDrugName(match[1].trim());
+        setQuantity(match[2]);
+        showToast(`🎤 "${match[1].trim()}" ${match[2]}개`);
+      } else {
+        setDrugName(transcript);
+        showToast(`🎤 "${transcript}"`);
+      }
+      setIsListening(false);
+    };
+    recognition.onerror = () => {
+      showToast("음성인식 실패, 다시 시도해주세요");
+      setIsListening(false);
+    };
+    recognition.onend = () => setIsListening(false);
+    recognition.start();
+  }
 
   function openForm(session) {
     if (addingSession === session && !editId) { setAddingSession(null); return; }
@@ -262,6 +304,7 @@ export default function App() {
         @keyframes fadeUp { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
         .toast-anim { animation: toastIn 0.25s ease; }
         @keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(8px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+        @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); } 50% { box-shadow: 0 0 0 7px rgba(239,68,68,0); } }
       `}</style>
 
       {/* 헤더 */}
@@ -356,9 +399,45 @@ export default function App() {
                 <div style={{ fontSize: 13, fontWeight: 700, color: accentColor, marginBottom: 12 }}>
                   {editId ? "✏️ 주문 수정" : SESSION_ICON[addingSession] + " " + SESSION_LABEL[addingSession] + " 주문 등록"}
                 </div>
-                <input autoFocus placeholder="약품명" value={drugName} onChange={e => setDrugName(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && document.getElementById("qty-input")?.focus()}
-                  style={{ ...iStyle, marginBottom: 10 }} />
+
+                {/* 약품명 입력 + 🎤 마이크 버튼 */}
+                <div style={{ position: "relative", marginBottom: 10 }}>
+                  <input
+                    autoFocus
+                    placeholder="약품명"
+                    value={drugName}
+                    onChange={e => setDrugName(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && document.getElementById("qty-input")?.focus()}
+                    style={{ ...iStyle, paddingRight: 48 }}
+                  />
+                  <button
+                    onClick={startListening}
+                    className="btn"
+                    title={isListening ? "듣는 중... (탭하여 중지)" : "음성으로 약품명 입력"}
+                    style={{
+                      position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                      width: 34, height: 34, borderRadius: "50%", border: "none",
+                      background: isListening ? "#ef4444" : "#e0f2fe",
+                      color: isListening ? "#fff" : "#2563eb",
+                      fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center",
+                      animation: isListening ? "micPulse 1s infinite" : "none",
+                      flexShrink: 0,
+                    }}
+                  >
+                    🎤
+                  </button>
+                </div>
+
+                {/* 듣는 중 안내 텍스트 */}
+                {isListening && (
+                  <div style={{ fontSize: 12, color: "#ef4444", fontWeight: 600, marginBottom: 8,
+                    display: "flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%",
+                      background: "#ef4444", animation: "micPulse 1s infinite" }} />
+                    듣고 있어요... 약품명을 말해주세요
+                  </div>
+                )}
+
                 <button onClick={() => setIsUrgent(!isUrgent)} className="btn"
                   style={{ width: "100%", padding: "9px", borderRadius: 10, marginBottom: 10,
                     fontWeight: 700, fontSize: 13, border: "1.5px solid " + (isUrgent ? "#f59e0b" : "#e2e8f0"),
