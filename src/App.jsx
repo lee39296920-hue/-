@@ -18,7 +18,10 @@ const api = async (table, method = "GET", body = null, filter = "") => {
   return res.ok;
 };
 
-function getToday() { return new Date().toISOString().split("T")[0]; }
+function getToday() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+}
 function getTodayLabel() { return new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "long" }); }
 function getCurrentSession() {
   const now = new Date();
