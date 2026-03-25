@@ -46,12 +46,14 @@ function isStockNote(val) { return val && isNaN(Number(val)); }
 function QtyBadge({ value, done, mode }) {
   if (!value) return null;
   const stock = mode === "stock" || (mode !== "qty" && isStockNote(value));
-  if (done) return <span style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8" }}>{stock ? value : "수량 : " + value}</span>;
+  // "재고 없음", "1개 남음" 등 프리셋은 그대로, 숫자만 입력 시 "N개 남음" 형태로 표시
+  const stockLabel = isNaN(Number(value)) ? value : value + "개 남음";
+  if (done) return <span style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8" }}>{stock ? stockLabel : "수량 : " + value}</span>;
   if (stock) return (
     <span style={{ fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "3px 8px",
       background: "#fef2f2", color: "#dc2626", border: "1.5px solid #fca5a5",
       display: "inline-flex", alignItems: "center", gap: 3 }}>
-      📦 재고 {value}
+      📦 {stockLabel}
     </span>
   );
   return (
@@ -62,8 +64,13 @@ function QtyBadge({ value, done, mode }) {
   );
 }
 
-function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit }) {
-  const sorted    = [...items].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
+function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit, sortOrder }) {
+  // 긴급은 항상 맨 위, 그 다음 시간순 or 가나다순
+  const sorted = [...items].sort((a, b) => {
+    if (b.urgent !== a.urgent) return (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0);
+    if (sortOrder === "alpha") return a.drug_name.localeCompare(b.drug_name, "ko");
+    return a.id - b.id; // 시간순 (id가 Date.now() 기반)
+  });
   const doneCount = items.filter(i => i.done).length;
   const allDone   = doneCount === items.length;
   return (
@@ -83,17 +90,31 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
       <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden",
         boxShadow: "0 1px 6px rgba(0,0,0,0.06)", borderTop: "3px solid " + SESSION_COLOR[session] }}>
         {sorted.map((item, idx) => (
-          <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 14px",
+          <div key={item.id} style={{
+            display: "flex", alignItems: "center", gap: 10, padding: "13px 14px",
             borderBottom: idx < sorted.length - 1 ? "1px solid #f1f5f9" : "none",
-            background: item.urgent ? (item.done ? "#fefce8" : "#fffbeb") : "transparent" }}>
+            borderLeft: item.urgent && !item.done ? "4px solid #f59e0b" : "4px solid transparent",
+            background: item.urgent
+              ? (item.done ? "#fefce8" : "#fff7ed")
+              : "transparent",
+          }}>
             <input type="checkbox" checked={item.done} onChange={() => onToggle(item.id, item.done)}
               style={{ width: 20, height: 20, accentColor: "#2563eb", cursor: "pointer", flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span style={{ fontWeight: 700, fontSize: 15,
-                  color: item.done ? "#94a3b8" : "#0f172a",
-                  textDecoration: item.done ? "line-through" : "none" }}>
-                  {item.urgent && <span style={{ color: item.done ? "#d1d5db" : "#f59e0b", marginRight: 4 }}>⭐</span>}
+                {/* 긴급 뱃지 */}
+                {item.urgent && !item.done && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 800, borderRadius: 6, padding: "2px 8px",
+                    background: "#f59e0b", color: "#fff",
+                    display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0,
+                  }}>🚨 긴급</span>
+                )}
+                <span style={{
+                  fontWeight: 700, fontSize: 15,
+                  color: item.done ? "#94a3b8" : (item.urgent ? "#92400e" : "#0f172a"),
+                  textDecoration: item.done ? "line-through" : "none",
+                }}>
                   {item.drug_name}
                 </span>
               </div>
@@ -121,6 +142,7 @@ export default function App() {
   const [loading, setLoading]             = useState(true);
   const [filterDate, setFilterDate]       = useState(getToday());
   const [filterSession, setFilterSession] = useState(getCurrentSession());
+  const [sortOrder, setSortOrder]         = useState("time"); // "time" | "alpha"
   const [addingSession, setAddingSession] = useState(null);
   const [editId, setEditId]               = useState(null);
   const [qtyMode, setQtyMode]             = useState("qty");
@@ -157,7 +179,6 @@ export default function App() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // 30초마다 자동 새로고침 (실시간 동기화)
   useEffect(() => {
     const timer = setInterval(fetchAll, 30000);
     return () => clearInterval(timer);
@@ -191,7 +212,6 @@ export default function App() {
 
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript.trim();
-      // "타이레놀 2개" 또는 "타이레놀 2" 패턴이면 약품명+수량 분리
       const match = transcript.match(/^(.+?)\s+(\d+)\s*개?$/);
       if (match) {
         setDrugName(match[1].trim());
@@ -366,6 +386,7 @@ export default function App() {
         {/* ===== 주문장 탭 ===== */}
         {!loading && activeTab === "order" && (
           <div>
+            {/* 날짜 / 세션 필터 */}
             <div style={{ background: "#fff", borderRadius: 14, padding: "12px 14px", marginBottom: 12,
               boxShadow: "0 1px 6px rgba(0,0,0,0.06)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
               <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
@@ -382,12 +403,19 @@ export default function App() {
               </div>
             </div>
 
+            {/* 정렬 버튼 + 주문 추가 */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-              <span style={{ fontSize: 12, color: "#94a3b8", display: "flex", alignItems: "center", gap: 4 }}>
-                <span>{SESSION_ICON[getCurrentSession()]}</span>
-                <span style={{ fontWeight: 600, color: SESSION_COLOR[getCurrentSession()] }}>{SESSION_LABEL[getCurrentSession()]}</span>
-                <span> 시간 · 13:30 자동전환</span>
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>정렬</span>
+                {[["time","🕐 시간순"],["alpha","가나다순"]].map(([val, label]) => (
+                  <button key={val} onClick={() => setSortOrder(val)} className="btn"
+                    style={{ padding: "5px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+                      background: sortOrder === val ? "#1e3a5f" : "#f1f5f9",
+                      color: sortOrder === val ? "#fff" : "#64748b" }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
               <button onClick={() => openForm(getCurrentSession())} className="btn"
                 style={{ padding: "7px 16px", borderRadius: 20, fontWeight: 700, fontSize: 13,
                   background: addingSession ? SESSION_COLOR[addingSession] : "#1e3a5f",
@@ -444,9 +472,9 @@ export default function App() {
                 <button onClick={() => setIsUrgent(!isUrgent)} className="btn"
                   style={{ width: "100%", padding: "9px", borderRadius: 10, marginBottom: 10,
                     fontWeight: 700, fontSize: 13, border: "1.5px solid " + (isUrgent ? "#f59e0b" : "#e2e8f0"),
-                    background: isUrgent ? "#fffbeb" : "#f8fafc",
+                    background: isUrgent ? "#fff7ed" : "#f8fafc",
                     color: isUrgent ? "#d97706" : "#94a3b8" }}>
-                  {isUrgent ? "⭐ 긴급 약품으로 표시됨" : "⭐ 긴급 표시 없음 (탭하여 설정)"}
+                  {isUrgent ? "🚨 긴급 약품으로 표시됨" : "🚨 긴급 표시 없음 (탭하여 설정)"}
                 </button>
                 <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
                   {[["qty","📦 수량 입력"],["stock","⚠️ 재고 메모"]].map(([m, label]) => (
@@ -508,9 +536,9 @@ export default function App() {
             ) : (
               <div>
                 {(filterSession === "all" || filterSession === "morning") && morning.length > 0 &&
-                  <SessionSection session="morning" items={morning} onToggle={toggleDone} onDelete={setConfirmDelete} onCheckAll={checkAll} onEdit={openEdit} />}
+                  <SessionSection session="morning" items={morning} onToggle={toggleDone} onDelete={setConfirmDelete} onCheckAll={checkAll} onEdit={openEdit} sortOrder={sortOrder} />}
                 {(filterSession === "all" || filterSession === "afternoon") && afternoon.length > 0 &&
-                  <SessionSection session="afternoon" items={afternoon} onToggle={toggleDone} onDelete={setConfirmDelete} onCheckAll={checkAll} onEdit={openEdit} />}
+                  <SessionSection session="afternoon" items={afternoon} onToggle={toggleDone} onDelete={setConfirmDelete} onCheckAll={checkAll} onEdit={openEdit} sortOrder={sortOrder} />}
               </div>
             )}
           </div>
