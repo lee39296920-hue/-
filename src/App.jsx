@@ -68,14 +68,10 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
   // 긴급은 항상 맨 위, 그 다음 시간순 or 가나다순
   const sorted = [...items].sort((a, b) => {
     if (sortOrder === "alpha") {
-      // 가나다순: 긴급 우선, 그 다음 가나다
       if (b.urgent !== a.urgent) return (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0);
       return a.drug_name.localeCompare(b.drug_name, "ko");
     }
-    // 시간순: 미완료+미품절 먼저, 그 안에서 긴급 우선, 완료/품절은 맨 아래
-    const aDone = a.done || a.soldout ? 1 : 0;
-    const bDone = b.done || b.soldout ? 1 : 0;
-    if (aDone !== bDone) return aDone - bDone;
+    // 시간순: 긴급 우선, 그 다음 등록 순서 고정 (완료해도 자리 안 바뀜)
     if (b.urgent !== a.urgent) return (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0);
     return a.id - b.id;
   });
@@ -124,7 +120,7 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
                     fontSize: 11, fontWeight: 800, borderRadius: 6, padding: "2px 8px",
                     background: "#64748b", color: "#fff",
                     display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0,
-                  }}>🚫 품절</span>
+                  }}>🚫 품절주문불가</span>
                 )}
                 <span style={{
                   fontWeight: 700, fontSize: 15,
@@ -501,7 +497,7 @@ export default function App() {
                       fontWeight: 700, fontSize: 13, border: "1.5px solid " + (isUrgent ? "#f59e0b" : "#e2e8f0"),
                       background: isUrgent ? "#fff7ed" : "#f8fafc",
                       color: isUrgent ? "#d97706" : "#94a3b8" }}>
-                    {isUrgent ? "🚨 긴급 표시됨" : "🚨 긴급 없음"}
+                    {isUrgent ? "🚨 긴급 ✓" : "🚨 긴급"}
                   </button>
                   {editId && (
                     <button onClick={() => setIsSoldOut(!isSoldOut)} className="btn"
@@ -509,7 +505,7 @@ export default function App() {
                         fontWeight: 700, fontSize: 13, border: "1.5px solid " + (isSoldOut ? "#64748b" : "#e2e8f0"),
                         background: isSoldOut ? "#f1f5f9" : "#f8fafc",
                         color: isSoldOut ? "#1e293b" : "#94a3b8" }}>
-                      {isSoldOut ? "🚫 품절 표시됨" : "🚫 품절 없음"}
+                      {isSoldOut ? "🚫 품절 ✓" : "🚫 품절"}
                     </button>
                   )}
                 </div>
