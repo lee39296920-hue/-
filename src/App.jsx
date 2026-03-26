@@ -265,16 +265,20 @@ export default function App() {
   }
 
   async function toggleDone(id, done) {
-    await api("orders", "PATCH", { done: !done }, `?id=eq.${id}`);
-    fetchAll();
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, done: !done } : o));
+    api("orders", "PATCH", { done: !done }, `?id=eq.${id}`);
   }
   async function deleteOrder(id) {
-    await api("orders", "DELETE", null, `?id=eq.${id}`);
-    setConfirmDelete(null); showToast("삭제되었습니다"); fetchAll();
+    setOrders(prev => prev.filter(o => o.id !== id));
+    setConfirmDelete(null); showToast("삭제되었습니다");
+    api("orders", "DELETE", null, `?id=eq.${id}`);
   }
   async function checkAll(session, done) {
-    await api("orders", "PATCH", { done }, `?date=eq.${filterDate}&session=eq.${session}`);
-    showToast(done ? "일괄 완료 처리했습니다" : "완료를 취소했습니다"); fetchAll();
+    setOrders(prev => prev.map(o =>
+      o.date === filterDate && o.session === session ? { ...o, done } : o
+    ));
+    showToast(done ? "일괄 완료 처리했습니다" : "완료를 취소했습니다");
+    api("orders", "PATCH", { done }, `?date=eq.${filterDate}&session=eq.${session}`);
   }
 
   async function handleHoSave() {
