@@ -64,7 +64,7 @@ function QtyBadge({ value, done, mode }) {
   );
 }
 
-function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit, sortOrder, onSoldOut }) {
+function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit, sortOrder }) {
   // 긴급은 항상 맨 위, 그 다음 시간순 or 가나다순
   const sorted = [...items].sort((a, b) => {
     if (sortOrder === "alpha") {
@@ -129,7 +129,7 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
                 <span style={{
                   fontWeight: 700, fontSize: 15,
                   color: item.soldout ? "#94a3b8" : item.done ? "#94a3b8" : (item.urgent ? "#92400e" : "#0f172a"),
-                  textDecoration: item.soldout || item.done ? "line-through" : "none",
+                  textDecoration: item.done ? "line-through" : "none",
                 }}>
                   {item.drug_name}
                 </span>
@@ -139,13 +139,6 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
               </div>
             </div>
             <span style={{ fontSize: 11, color: "#b0bec5", flexShrink: 0 }}>{item.created_at}</span>
-            <button onClick={() => onSoldOut(item.id, item.soldout)} className="btn"
-              style={{ padding: "4px 8px", borderRadius: 7,
-                background: item.soldout ? "#f1f5f9" : "#f1f5f9",
-                color: item.soldout ? "#059669" : "#64748b",
-                fontSize: 11, fontWeight: 700, border: "none", flexShrink: 0 }}>
-              {item.soldout ? "취소" : "품절"}
-            </button>
             <button onClick={() => onEdit(item)} className="btn"
               style={{ padding: "4px 8px", borderRadius: 7, background: "#eff6ff", color: "#2563eb",
                 fontSize: 11, fontWeight: 700, border: "none", flexShrink: 0 }}>수정</button>
@@ -172,6 +165,7 @@ export default function App() {
   const [drugName, setDrugName]           = useState("");
   const [quantity, setQuantity]           = useState("");
   const [isUrgent, setIsUrgent]           = useState(false);
+  const [isSoldOut, setIsSoldOut]         = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [toast, setToast]                 = useState(null);
   const [activeTab, setActiveTab]         = useState("order");
@@ -257,13 +251,14 @@ export default function App() {
   function openForm(session) {
     if (addingSession === session && !editId) { setAddingSession(null); return; }
     setEditId(null); setAddingSession(session); setQtyMode("qty");
-    setDrugName(""); setQuantity(""); setIsUrgent(false);
+    setDrugName(""); setQuantity(""); setIsUrgent(false); setIsSoldOut(false);
   }
   function openEdit(item) {
     setEditId(item.id); setAddingSession(item.session);
     setQtyMode(item.qty_mode || (isStockNote(item.quantity) ? "stock" : "qty"));
     setDrugName(item.drug_name); setQuantity(item.quantity);
     setIsUrgent(item.urgent || false);
+    setIsSoldOut(item.soldout || false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -272,18 +267,18 @@ export default function App() {
     const timeStr = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
     if (editId) {
       await api("orders", "PATCH", {
-        drug_name: drugName.trim(), quantity: quantity.trim(), qty_mode: qtyMode, urgent: isUrgent
+        drug_name: drugName.trim(), quantity: quantity.trim(), qty_mode: qtyMode, urgent: isUrgent, soldout: isSoldOut
       }, `?id=eq.${editId}`);
       showToast("수정되었습니다");
     } else {
       await api("orders", "POST", {
         id: Date.now(), date: filterDate, session: addingSession,
         drug_name: drugName.trim(), quantity: quantity.trim(), qty_mode: qtyMode,
-        urgent: isUrgent, done: false, created_at: timeStr,
+        urgent: isUrgent, soldout: false, done: false, created_at: timeStr,
       });
       showToast("주문이 등록되었습니다");
     }
-    setDrugName(""); setQuantity(""); setAddingSession(null); setEditId(null); setIsUrgent(false);
+    setDrugName(""); setQuantity(""); setAddingSession(null); setEditId(null); setIsUrgent(false); setIsSoldOut(false);
     fetchAll();
   }
 
@@ -500,13 +495,24 @@ export default function App() {
                   </div>
                 )}
 
-                <button onClick={() => setIsUrgent(!isUrgent)} className="btn"
-                  style={{ width: "100%", padding: "9px", borderRadius: 10, marginBottom: 10,
-                    fontWeight: 700, fontSize: 13, border: "1.5px solid " + (isUrgent ? "#f59e0b" : "#e2e8f0"),
-                    background: isUrgent ? "#fff7ed" : "#f8fafc",
-                    color: isUrgent ? "#d97706" : "#94a3b8" }}>
-                  {isUrgent ? "🚨 긴급 약품으로 표시됨" : "🚨 긴급 표시 없음 (탭하여 설정)"}
-                </button>
+                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                  <button onClick={() => setIsUrgent(!isUrgent)} className="btn"
+                    style={{ flex: 1, padding: "9px", borderRadius: 10,
+                      fontWeight: 700, fontSize: 13, border: "1.5px solid " + (isUrgent ? "#f59e0b" : "#e2e8f0"),
+                      background: isUrgent ? "#fff7ed" : "#f8fafc",
+                      color: isUrgent ? "#d97706" : "#94a3b8" }}>
+                    {isUrgent ? "🚨 긴급 표시됨" : "🚨 긴급 없음"}
+                  </button>
+                  {editId && (
+                    <button onClick={() => setIsSoldOut(!isSoldOut)} className="btn"
+                      style={{ flex: 1, padding: "9px", borderRadius: 10,
+                        fontWeight: 700, fontSize: 13, border: "1.5px solid " + (isSoldOut ? "#64748b" : "#e2e8f0"),
+                        background: isSoldOut ? "#f1f5f9" : "#f8fafc",
+                        color: isSoldOut ? "#1e293b" : "#94a3b8" }}>
+                      {isSoldOut ? "🚫 품절 표시됨" : "🚫 품절 없음"}
+                    </button>
+                  )}
+                </div>
                 <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
                   {[["qty","📦 수량 입력"],["stock","⚠️ 재고 메모"]].map(([m, label]) => (
                     <button key={m} onClick={() => { setQtyMode(m); if (!editId) setQuantity(""); }} className="btn"
@@ -544,7 +550,7 @@ export default function App() {
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => { setAddingSession(null); setDrugName(""); setQuantity(""); setEditId(null); setIsUrgent(false); }} className="btn"
+                  <button onClick={() => { setAddingSession(null); setDrugName(""); setQuantity(""); setEditId(null); setIsUrgent(false); setIsSoldOut(false); }} className="btn"
                     style={{ flex: 1, padding: "10px", borderRadius: 10, background: "#f1f5f9", color: "#64748b", fontWeight: 600, fontSize: 14 }}>
                     취소
                   </button>
@@ -567,9 +573,9 @@ export default function App() {
             ) : (
               <div>
                 {(filterSession === "all" || filterSession === "morning") && morning.length > 0 &&
-                  <SessionSection session="morning" items={morning} onToggle={toggleDone} onDelete={setConfirmDelete} onCheckAll={checkAll} onEdit={openEdit} sortOrder={sortOrder} onSoldOut={toggleSoldOut} />}
+                  <SessionSection session="morning" items={morning} onToggle={toggleDone} onDelete={setConfirmDelete} onCheckAll={checkAll} onEdit={openEdit} sortOrder={sortOrder} />}
                 {(filterSession === "all" || filterSession === "afternoon") && afternoon.length > 0 &&
-                  <SessionSection session="afternoon" items={afternoon} onToggle={toggleDone} onDelete={setConfirmDelete} onCheckAll={checkAll} onEdit={openEdit} sortOrder={sortOrder} onSoldOut={toggleSoldOut} />}
+                  <SessionSection session="afternoon" items={afternoon} onToggle={toggleDone} onDelete={setConfirmDelete} onCheckAll={checkAll} onEdit={openEdit} sortOrder={sortOrder} />}
               </div>
             )}
           </div>
