@@ -64,12 +64,20 @@ function QtyBadge({ value, done, mode }) {
   );
 }
 
-function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit, sortOrder }) {
+function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit, sortOrder, onSoldOut }) {
   // 긴급은 항상 맨 위, 그 다음 시간순 or 가나다순
   const sorted = [...items].sort((a, b) => {
+    if (sortOrder === "alpha") {
+      // 가나다순: 긴급 우선, 그 다음 가나다
+      if (b.urgent !== a.urgent) return (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0);
+      return a.drug_name.localeCompare(b.drug_name, "ko");
+    }
+    // 시간순: 미완료+미품절 먼저, 그 안에서 긴급 우선, 완료/품절은 맨 아래
+    const aDone = a.done || a.soldout ? 1 : 0;
+    const bDone = b.done || b.soldout ? 1 : 0;
+    if (aDone !== bDone) return aDone - bDone;
     if (b.urgent !== a.urgent) return (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0);
-    if (sortOrder === "alpha") return a.drug_name.localeCompare(b.drug_name, "ko");
-    return a.id - b.id; // 시간순 (id가 Date.now() 기반)
+    return a.id - b.id;
   });
   const doneCount = items.filter(i => i.done).length;
   const allDone   = doneCount === items.length;
@@ -93,8 +101,8 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
           <div key={item.id} style={{
             display: "flex", alignItems: "center", gap: 10, padding: "13px 14px",
             borderBottom: idx < sorted.length - 1 ? "1px solid #f1f5f9" : "none",
-            borderLeft: item.urgent && !item.done ? "4px solid #f59e0b" : "4px solid transparent",
-            background: item.urgent
+            borderLeft: item.urgent && !item.done ? "4px solid #f59e0b" : item.soldout ? "4px solid #94a3b8" : "4px solid transparent",
+            background: item.soldout ? "#f8fafc" : item.urgent
               ? (item.done ? "#fefce8" : "#fff7ed")
               : "transparent",
           }}>
@@ -103,17 +111,25 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 {/* 긴급 뱃지 */}
-                {item.urgent && !item.done && (
+                {item.urgent && !item.done && !item.soldout && (
                   <span style={{
                     fontSize: 11, fontWeight: 800, borderRadius: 6, padding: "2px 8px",
                     background: "#f59e0b", color: "#fff",
                     display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0,
                   }}>🚨 긴급</span>
                 )}
+                {/* 품절 뱃지 */}
+                {item.soldout && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 800, borderRadius: 6, padding: "2px 8px",
+                    background: "#64748b", color: "#fff",
+                    display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0,
+                  }}>🚫 품절</span>
+                )}
                 <span style={{
                   fontWeight: 700, fontSize: 15,
-                  color: item.done ? "#94a3b8" : (item.urgent ? "#92400e" : "#0f172a"),
-                  textDecoration: item.done ? "line-through" : "none",
+                  color: item.soldout ? "#94a3b8" : item.done ? "#94a3b8" : (item.urgent ? "#92400e" : "#0f172a"),
+                  textDecoration: item.soldout || item.done ? "line-through" : "none",
                 }}>
                   {item.drug_name}
                 </span>
@@ -123,6 +139,13 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
               </div>
             </div>
             <span style={{ fontSize: 11, color: "#b0bec5", flexShrink: 0 }}>{item.created_at}</span>
+            <button onClick={() => onSoldOut(item.id, item.soldout)} className="btn"
+              style={{ padding: "4px 8px", borderRadius: 7,
+                background: item.soldout ? "#f1f5f9" : "#f1f5f9",
+                color: item.soldout ? "#059669" : "#64748b",
+                fontSize: 11, fontWeight: 700, border: "none", flexShrink: 0 }}>
+              {item.soldout ? "취소" : "품절"}
+            </button>
             <button onClick={() => onEdit(item)} className="btn"
               style={{ padding: "4px 8px", borderRadius: 7, background: "#eff6ff", color: "#2563eb",
                 fontSize: 11, fontWeight: 700, border: "none", flexShrink: 0 }}>수정</button>
@@ -164,8 +187,8 @@ export default function App() {
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 1800); };
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
+  const fetchAll = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [o, h] = await Promise.all([
         api("orders", "GET", null, "?order=created_date.desc"),
@@ -174,13 +197,13 @@ export default function App() {
       setOrders(Array.isArray(o) ? o : []);
       setHandovers(Array.isArray(h) ? h : []);
     } catch(e) { showToast("데이터 로딩 실패"); }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   useEffect(() => {
-    const timer = setInterval(fetchAll, 30000);
+    const timer = setInterval(() => fetchAll(true), 60000);
     return () => clearInterval(timer);
   }, [fetchAll]);
 
@@ -267,6 +290,10 @@ export default function App() {
   async function toggleDone(id, done) {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, done: !done } : o));
     api("orders", "PATCH", { done: !done }, `?id=eq.${id}`);
+  }
+  async function toggleSoldOut(id, soldout) {
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, soldout: !soldout } : o));
+    api("orders", "PATCH", { soldout: !soldout }, `?id=eq.${id}`);
   }
   async function deleteOrder(id) {
     setOrders(prev => prev.filter(o => o.id !== id));
@@ -540,9 +567,9 @@ export default function App() {
             ) : (
               <div>
                 {(filterSession === "all" || filterSession === "morning") && morning.length > 0 &&
-                  <SessionSection session="morning" items={morning} onToggle={toggleDone} onDelete={setConfirmDelete} onCheckAll={checkAll} onEdit={openEdit} sortOrder={sortOrder} />}
+                  <SessionSection session="morning" items={morning} onToggle={toggleDone} onDelete={setConfirmDelete} onCheckAll={checkAll} onEdit={openEdit} sortOrder={sortOrder} onSoldOut={toggleSoldOut} />}
                 {(filterSession === "all" || filterSession === "afternoon") && afternoon.length > 0 &&
-                  <SessionSection session="afternoon" items={afternoon} onToggle={toggleDone} onDelete={setConfirmDelete} onCheckAll={checkAll} onEdit={openEdit} sortOrder={sortOrder} />}
+                  <SessionSection session="afternoon" items={afternoon} onToggle={toggleDone} onDelete={setConfirmDelete} onCheckAll={checkAll} onEdit={openEdit} sortOrder={sortOrder} onSoldOut={toggleSoldOut} />}
               </div>
             )}
           </div>
