@@ -52,28 +52,6 @@ function findSimilarDrugs(transcript, limit = 3) {
     .map(s => s.drug);
 }
 
-
-// 음성인식 결과와 약품명 유사도 계산 (자모 포함 문자열 매칭)
-function getSimilarity(a, b) {
-  a = a.replace(/\s/g, "").toLowerCase();
-  b = b.replace(/\s/g, "").toLowerCase();
-  if (b.includes(a) || a.includes(b)) return 1;
-  let matches = 0;
-  for (let i = 0; i < a.length; i++) {
-    if (b.includes(a[i])) matches++;
-  }
-  return matches / Math.max(a.length, b.length);
-}
-
-function findSimilarDrugs(transcript, list, topN = 5) {
-  const scored = list.map(name => ({
-    name,
-    score: getSimilarity(transcript, name)
-  }));
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, topN).filter(d => d.score > 0.2).map(d => d.name);
-}
-
 const SESSION_LABEL  = { morning: "오전 주문", afternoon: "오후 주문" };
 const SESSION_ICON   = { morning: "☀️", afternoon: "🌙" };
 const SESSION_COLOR  = { morning: "#f59e0b", afternoon: "#6366f1" };
