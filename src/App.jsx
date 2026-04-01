@@ -25,7 +25,7 @@ function getToday() {
 function getTodayLabel() { return new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "long" }); }
 function getCurrentSession() {
   const now = new Date();
-  return now.getHours() * 60 + now.getMinutes() < 13 * 60 + 30 ? "morning" : "afternoon";
+  return now.getHours() * 60 + now.getMinutes() < 14 * 60 ? "morning" : "afternoon";
 }
 
 
@@ -209,7 +209,30 @@ export default function App() {
         api("orders", "GET", null, "?order=created_date.desc"),
         api("handovers", "GET", null, "?order=created_date.desc"),
       ]);
-      setOrders(Array.isArray(o) ? o : []);
+      const orders = Array.isArray(o) ? o : [];
+      const today = getToday();
+      const currentSession = getCurrentSession();
+
+      // 이월 처리: 미완료+미품절 주문이 오늘 날짜/세션이 아니면 오늘로 이월
+      const toCarryOver = orders.filter(order =>
+        !order.done && !order.soldout &&
+        (order.date !== today || order.session !== currentSession)
+      );
+      if (toCarryOver.length > 0) {
+        const timeStr = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+        await Promise.all(toCarryOver.map(order =>
+          api("orders", "PATCH", {
+            date: today,
+            session: currentSession,
+            created_at: timeStr,
+          }, `?id=eq.${order.id}`)
+        ));
+        // 이월 후 다시 불러오기
+        const updated = await api("orders", "GET", null, "?order=created_date.desc");
+        setOrders(Array.isArray(updated) ? updated : []);
+      } else {
+        setOrders(orders);
+      }
       setHandovers(Array.isArray(h) ? h : []);
     } catch(e) { showToast("데이터 로딩 실패"); }
     if (!silent) setLoading(false);
@@ -516,6 +539,7 @@ export default function App() {
                       }
                     }}
                     onKeyDown={e => e.key === "Enter" && document.getElementById("qty-input")?.focus()}
+                    onBlur={() => setTimeout(() => setSuggestions([]), 150)}
                     style={{ ...iStyle, paddingRight: 48 }}
                   />
                   {suggestions.length > 0 && (
