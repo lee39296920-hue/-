@@ -521,8 +521,17 @@ export default function App() {
             {addingSession && (
               <div className="fade" style={{ background: "#fff", borderRadius: 14, padding: "16px", marginBottom: 14,
                 boxShadow: "0 2px 12px rgba(0,0,0,0.08)", borderTop: "3px solid " + accentColor }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: accentColor, marginBottom: 12 }}>
-                  {editId ? "✏️ 주문 수정" : SESSION_ICON[addingSession] + " " + SESSION_LABEL[addingSession] + " 주문 등록"}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: accentColor }}>
+                    {editId ? "✏️ 주문 수정" : SESSION_ICON[addingSession] + " " + SESSION_LABEL[addingSession] + " 주문 등록"}
+                  </div>
+                  <button onClick={() => setIsUrgent(!isUrgent)} className="btn"
+                    style={{ padding: "4px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700,
+                      border: "1.5px solid " + (isUrgent ? "#f59e0b" : "#e2e8f0"),
+                      background: isUrgent ? "#fff7ed" : "#f8fafc",
+                      color: isUrgent ? "#d97706" : "#94a3b8" }}>
+                    {isUrgent ? "🚨 긴급 ✓" : "🚨 긴급"}
+                  </button>
                 </div>
 
                 {/* 약품명 입력 + 🎤 마이크 버튼 */}
@@ -589,29 +598,20 @@ export default function App() {
                   </div>
                 )}
 
-                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                  <button onClick={() => setIsUrgent(!isUrgent)} className="btn"
-                    style={{ flex: 1, padding: "9px", borderRadius: 10,
-                      fontWeight: 700, fontSize: 13, border: "1.5px solid " + (isUrgent ? "#f59e0b" : "#e2e8f0"),
-                      background: isUrgent ? "#fff7ed" : "#f8fafc",
-                      color: isUrgent ? "#d97706" : "#94a3b8" }}>
-                    {isUrgent ? "🚨 긴급 ✓" : "🚨 긴급"}
+                {editId && (
+                  <button onClick={() => setIsSoldOut(!isSoldOut)} className="btn"
+                    style={{ width: "100%", padding: "9px", borderRadius: 10, marginBottom: 10,
+                      fontWeight: 700, fontSize: 13, border: "1.5px solid " + (isSoldOut ? "#64748b" : "#e2e8f0"),
+                      background: isSoldOut ? "#f1f5f9" : "#f8fafc",
+                      color: isSoldOut ? "#1e293b" : "#94a3b8" }}>
+                    {isSoldOut ? "🚫 품절 ✓" : "🚫 품절"}
                   </button>
-                  {editId && (
-                    <button onClick={() => setIsSoldOut(!isSoldOut)} className="btn"
-                      style={{ flex: 1, padding: "9px", borderRadius: 10,
-                        fontWeight: 700, fontSize: 13, border: "1.5px solid " + (isSoldOut ? "#64748b" : "#e2e8f0"),
-                        background: isSoldOut ? "#f1f5f9" : "#f8fafc",
-                        color: isSoldOut ? "#1e293b" : "#94a3b8" }}>
-                      {isSoldOut ? "🚫 품절 ✓" : "🚫 품절"}
-                    </button>
-                  )}
-                </div>
+                )}
                 {/* PTP / 병 선택 */}
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ display: "flex", gap: 6, marginBottom: packType === "bottle" ? 8 : 0 }}>
-                    {[["","선택안함"],["ptp","PTP"],["bottle","병"]].map(([val, label]) => (
-                      <button key={val} onClick={() => { setPackType(val); setBottleSize(""); }} className="btn"
+                    {[["ptp","PTP"],["bottle","병"]].map(([val, label]) => (
+                      <button key={val} onClick={() => { setPackType(packType === val ? "" : val); setBottleSize(""); }} className="btn"
                         style={{ flex: 1, padding: "7px", borderRadius: 9, fontSize: 12, fontWeight: 700,
                           border: "1.5px solid " + (packType === val ? accentColor : "#e2e8f0"),
                           background: packType === val ? accentColor + "18" : "#f8fafc",
