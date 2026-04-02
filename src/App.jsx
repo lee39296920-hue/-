@@ -639,7 +639,7 @@ export default function App() {
                 </div>
 
                 <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-                  {[["qty","📦 수량 입력"],["stock","⚠️ 재고 메모"]].map(([m, label]) => (
+                  {[["qty","📦 주문수량입력"],["stock","⚠️ 현재재고입력"]].map(([m, label]) => (
                     <button key={m} onClick={() => { setQtyMode(m); if (!editId) setQuantity(""); }} className="btn"
                       style={{ flex: 1, padding: "7px", borderRadius: 9, fontSize: 12, fontWeight: 700,
                         border: "1.5px solid " + (qtyMode === m ? accentColor : "#e2e8f0"),
