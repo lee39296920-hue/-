@@ -226,7 +226,7 @@ export default function App() {
 
       // 이월 처리: 미완료+미품절 주문이 오늘 날짜/세션이 아니면 오늘로 이월
       const toCarryOver = orders.filter(order =>
-        !order.done && !order.soldout &&
+        !order.done &&
         (order.date !== today || order.session !== currentSession)
       );
       if (toCarryOver.length > 0) {
