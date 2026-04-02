@@ -150,12 +150,12 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
                   {item.drug_name}
                 </span>
                 {item.pack_type === "ptp" && (
-                  <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
+                  <span style={{ fontSize: 15, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
                     background: "#eff6ff", color: "#2563eb", flexShrink: 0 }}>PTP</span>
                 )}
                 {item.pack_type === "bottle" && (
-                  <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
-                    background: "#f0fdf4", color: "#059669", flexShrink: 0 }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
+                    background: "#f5f3ff", color: "#7c3aed", flexShrink: 0 }}>
                     {item.bottle_size ? item.bottle_size + " 병" : "병"}
                   </span>
                 )}
