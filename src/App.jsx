@@ -109,11 +109,7 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
           background: allDone ? "#d1fae5" : "#f1f5f9", color: allDone ? "#059669" : "#64748b" }}>
           {allDone ? "완료" : doneCount + "/" + items.length}
         </span>
-        <button onClick={() => onCheckAll(session, !allDone)} className="btn"
-          style={{ marginLeft: "auto", padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700,
-            background: allDone ? "#f1f5f9" : "#059669", color: allDone ? "#94a3b8" : "#fff", border: "none" }}>
-          {allDone ? "✓ 전체완료" : "일괄 완료"}
-        </button>
+
       </div>
       <div style={{ background: "#fff", borderRadius: 14, overflow: "hidden",
         boxShadow: "0 1px 6px rgba(0,0,0,0.06)", borderTop: "3px solid " + SESSION_COLOR[session] }}>
@@ -153,6 +149,16 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
                 }}>
                   {item.drug_name}
                 </span>
+                {item.pack_type === "ptp" && (
+                  <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
+                    background: "#eff6ff", color: "#2563eb", flexShrink: 0 }}>PTP</span>
+                )}
+                {item.pack_type === "bottle" && (
+                  <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
+                    background: "#f0fdf4", color: "#059669", flexShrink: 0 }}>
+                    {item.bottle_size ? item.bottle_size + " 병" : "병"}
+                  </span>
+                )}
               </div>
               <div style={{ marginTop: 4 }}>
                 <QtyBadge value={item.quantity} done={item.done} mode={item.qty_mode} />
@@ -197,6 +203,8 @@ export default function App() {
   const [showHoForm, setShowHoForm]       = useState(false);
   const [editHoId, setEditHoId]           = useState(null);
   const [isListening, setIsListening]     = useState(false);
+  const [packType, setPackType]           = useState(""); // "" | "ptp" | "bottle"
+  const [bottleSize, setBottleSize]       = useState("");
   const [suggestions, setSuggestions]     = useState([]);
   const recognitionRef                    = useRef(null);
 
@@ -302,7 +310,7 @@ export default function App() {
   function openForm(session) {
     if (addingSession === session && !editId) { setAddingSession(null); return; }
     setEditId(null); setAddingSession(session); setQtyMode("qty");
-    setDrugName(""); setQuantity(""); setIsUrgent(false); setIsSoldOut(false); setSuggestions([]);
+    setDrugName(""); setQuantity(""); setIsUrgent(false); setIsSoldOut(false); setSuggestions([]); setPackType(""); setBottleSize("");
   }
   function openEdit(item) {
     setEditId(item.id); setAddingSession(item.session);
@@ -310,6 +318,8 @@ export default function App() {
     setDrugName(item.drug_name); setQuantity(item.quantity);
     setIsUrgent(item.urgent || false);
     setIsSoldOut(item.soldout || false);
+    setPackType(item.pack_type || "");
+    setBottleSize(item.bottle_size || "");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -318,18 +328,18 @@ export default function App() {
     const timeStr = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
     if (editId) {
       await api("orders", "PATCH", {
-        drug_name: drugName.trim(), quantity: quantity.trim(), qty_mode: qtyMode, urgent: isUrgent, soldout: isSoldOut
+        drug_name: drugName.trim(), quantity: quantity.trim(), qty_mode: qtyMode, urgent: isUrgent, soldout: isSoldOut, pack_type: packType, bottle_size: bottleSize
       }, `?id=eq.${editId}`);
       showToast("수정되었습니다");
     } else {
       await api("orders", "POST", {
         id: Date.now(), date: filterDate, session: addingSession,
         drug_name: drugName.trim(), quantity: quantity.trim(), qty_mode: qtyMode,
-        urgent: isUrgent, soldout: false, done: false, created_at: timeStr,
+        urgent: isUrgent, soldout: false, pack_type: packType, bottle_size: bottleSize, done: false, created_at: timeStr,
       });
       showToast("주문이 등록되었습니다");
     }
-    setDrugName(""); setQuantity(""); setAddingSession(null); setEditId(null); setIsUrgent(false); setIsSoldOut(false); setSuggestions([]);
+    setDrugName(""); setQuantity(""); setAddingSession(null); setEditId(null); setIsUrgent(false); setIsSoldOut(false); setSuggestions([]); setPackType(""); setBottleSize("");
     fetchAll();
   }
 
@@ -434,19 +444,12 @@ export default function App() {
       {/* 메인 탭 */}
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0" }}>
         <div style={{ maxWidth: 520, margin: "0 auto", display: "flex" }}>
-          {[["order","📋 주문장"],["handover","📝 인수인계"]].map(([key, label]) => (
-            <button key={key} onClick={() => setActiveTab(key)} className="btn"
-              style={{ flex: 1, padding: "12px 0", fontSize: 14, fontWeight: 700, position: "relative",
-                background: "transparent", color: activeTab === key ? "#1e3a5f" : "#94a3b8",
-                borderBottom: activeTab === key ? "2px solid #1e3a5f" : "2px solid transparent" }}>
-              {label}
-              {key === "handover" && uncheckedHo > 0 && (
-                <span style={{ position: "absolute", top: 8, right: "calc(50% - 30px)",
-                  background: "#ef4444", color: "#fff", borderRadius: 10, fontSize: 10,
-                  fontWeight: 700, padding: "1px 5px" }}>{uncheckedHo}</span>
-              )}
-            </button>
-          ))}
+          <button onClick={() => setActiveTab("order")} className="btn"
+            style={{ flex: 1, padding: "12px 0", fontSize: 14, fontWeight: 700,
+              background: "transparent", color: "#1e3a5f",
+              borderBottom: "2px solid #1e3a5f" }}>
+            📋 주문장
+          </button>
         </div>
       </div>
 
@@ -604,6 +607,37 @@ export default function App() {
                     </button>
                   )}
                 </div>
+                {/* PTP / 병 선택 */}
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ display: "flex", gap: 6, marginBottom: packType === "bottle" ? 8 : 0 }}>
+                    {[["","선택안함"],["ptp","PTP"],["bottle","병"]].map(([val, label]) => (
+                      <button key={val} onClick={() => { setPackType(val); setBottleSize(""); }} className="btn"
+                        style={{ flex: 1, padding: "7px", borderRadius: 9, fontSize: 12, fontWeight: 700,
+                          border: "1.5px solid " + (packType === val ? accentColor : "#e2e8f0"),
+                          background: packType === val ? accentColor + "18" : "#f8fafc",
+                          color: packType === val ? accentColor : "#94a3b8" }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {packType === "bottle" && (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {["28t","30t","60t","90t","100t","200t","300t","500t","1000t"].map(size => (
+                        <button key={size} onClick={() => setBottleSize(size)} className="btn"
+                          style={{ padding: "5px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+                            border: "1.5px solid " + (bottleSize === size ? "#059669" : "#e2e8f0"),
+                            background: bottleSize === size ? "#f0fdf4" : "#f8fafc",
+                            color: bottleSize === size ? "#059669" : "#64748b" }}>
+                          {size}
+                        </button>
+                      ))}
+                      <input placeholder="직접입력" value={!["28t","30t","60t","90t","100t","200t","300t","500t","1000t"].includes(bottleSize) ? bottleSize : ""}
+                        onChange={e => setBottleSize(e.target.value)}
+                        style={{ ...iStyle, width: 80, padding: "5px 8px", fontSize: 12 }} />
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
                   {[["qty","📦 수량 입력"],["stock","⚠️ 재고 메모"]].map(([m, label]) => (
                     <button key={m} onClick={() => { setQtyMode(m); if (!editId) setQuantity(""); }} className="btn"
