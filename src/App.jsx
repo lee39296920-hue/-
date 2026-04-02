@@ -125,23 +125,26 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
             <input type="checkbox" checked={item.done} onChange={() => onToggle(item.id, item.done)}
               style={{ width: 20, height: 20, accentColor: "#2563eb", cursor: "pointer", flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                {/* 긴급 뱃지 */}
-                {item.urgent && !item.done && !item.soldout && (
-                  <span style={{
-                    fontSize: 11, fontWeight: 800, borderRadius: 6, padding: "2px 8px",
-                    background: "#f59e0b", color: "#fff",
-                    display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0,
-                  }}>🚨 긴급</span>
-                )}
-                {/* 품절 뱃지 */}
-                {item.soldout && (
-                  <span style={{
-                    fontSize: 11, fontWeight: 800, borderRadius: 6, padding: "2px 8px",
-                    background: "#64748b", color: "#fff",
-                    display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0,
-                  }}>🚫 품절주문불가</span>
-                )}
+              {/* 긴급/품절 뱃지 줄 */}
+              {(item.urgent && !item.done && !item.soldout || item.soldout) && (
+                <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+                  {item.urgent && !item.done && !item.soldout && (
+                    <span style={{
+                      fontSize: 11, fontWeight: 800, borderRadius: 6, padding: "2px 8px",
+                      background: "#f59e0b", color: "#fff",
+                      display: "inline-flex", alignItems: "center", gap: 3,
+                    }}>🚨 긴급</span>
+                  )}
+                  {item.soldout && (
+                    <span style={{
+                      fontSize: 11, fontWeight: 800, borderRadius: 6, padding: "2px 8px",
+                      background: "#64748b", color: "#fff",
+                      display: "inline-flex", alignItems: "center", gap: 3,
+                    }}>🚫 품절주문불가</span>
+                  )}
+                </div>
+              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{
                   fontWeight: 700, fontSize: 15,
                   color: item.soldout ? "#94a3b8" : item.done ? "#94a3b8" : (item.urgent ? "#92400e" : "#0f172a"),
