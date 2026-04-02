@@ -149,18 +149,18 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
                 }}>
                   {item.drug_name}
                 </span>
+              </div>
+              <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 {item.pack_type === "ptp" && (
-                  <span style={{ fontSize: 15, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
+                  <span style={{ fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
                     background: "#eff6ff", color: "#2563eb", flexShrink: 0 }}>PTP</span>
                 )}
                 {item.pack_type === "bottle" && (
-                  <span style={{ fontSize: 15, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
+                  <span style={{ fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
                     background: "#f5f3ff", color: "#7c3aed", flexShrink: 0 }}>
                     {item.bottle_size ? item.bottle_size + " 병" : "병"}
                   </span>
                 )}
-              </div>
-              <div style={{ marginTop: 4 }}>
                 <QtyBadge value={item.quantity} done={item.done} mode={item.qty_mode} />
               </div>
             </div>
