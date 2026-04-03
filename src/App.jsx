@@ -626,7 +626,7 @@ export default function App() {
                   </div>
                   {packType === "bottle" && (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {["28t","30t","60t","90t","100t","200t","300t","500t","1000t"].map(size => (
+                      {["28t","30t","60t","90t","100t","120t","200t","300t","500t","1000t"].map(size => (
                         <button key={size} onClick={() => setBottleSize(size)} className="btn"
                           style={{ padding: "5px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
                             border: "1.5px solid " + (bottleSize === size ? "#059669" : "#e2e8f0"),
@@ -635,7 +635,7 @@ export default function App() {
                           {size}
                         </button>
                       ))}
-                      <input placeholder="직접입력" value={!["28t","30t","60t","90t","100t","200t","300t","500t","1000t"].includes(bottleSize) ? bottleSize : ""}
+                      <input placeholder="직접입력" value={!["28t","30t","60t","90t","100t","120t","200t","300t","500t","1000t"].includes(bottleSize) ? bottleSize : ""}
                         onChange={e => setBottleSize(e.target.value)}
                         style={{ ...iStyle, width: 80, padding: "5px 8px", fontSize: 12 }} />
                     </div>
