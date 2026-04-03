@@ -144,21 +144,19 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
                   )}
                 </div>
               )}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span style={{
-                  fontWeight: 700, fontSize: 15,
-                  color: item.soldout ? "#94a3b8" : item.done ? "#94a3b8" : (item.urgent ? "#92400e" : "#0f172a"),
-                  textDecoration: item.done ? "line-through" : "none",
-                }}>
-                  {item.drug_name}
-                </span>
+              <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.4,
+                color: item.soldout ? "#94a3b8" : item.done ? "#94a3b8" : (item.urgent ? "#92400e" : "#0f172a"),
+                textDecoration: item.done ? "line-through" : "none" }}>
+                {item.drug_name}
                 {item.pack_type === "ptp" && (
-                  <span style={{ fontSize: 15, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
-                    background: "#eff6ff", color: "#2563eb", flexShrink: 0 }}>PTP</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
+                    background: "#eff6ff", color: "#2563eb", marginLeft: 6, verticalAlign: "middle",
+                    display: "inline-block", whiteSpace: "nowrap" }}>PTP</span>
                 )}
                 {item.pack_type === "bottle" && (
-                  <span style={{ fontSize: 15, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
-                    background: "#f5f3ff", color: "#7c3aed", flexShrink: 0 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, borderRadius: 6, padding: "2px 7px",
+                    background: "#eff6ff", color: "#2563eb", marginLeft: 6, verticalAlign: "middle",
+                    display: "inline-block", whiteSpace: "nowrap" }}>
                     {item.bottle_size ? item.bottle_size + " 병" : "병"}
                   </span>
                 )}
@@ -167,7 +165,7 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
                 <QtyBadge value={item.quantity} done={item.done} mode={item.qty_mode} />
               </div>
             </div>
-            <span style={{ fontSize: 11, color: "#b0bec5", flexShrink: 0 }}>{item.created_at}</span>
+            
             <button onClick={() => onEdit(item)} className="btn"
               style={{ padding: "4px 8px", borderRadius: 7, background: "#eff6ff", color: "#2563eb",
                 fontSize: 11, fontWeight: 700, border: "none", flexShrink: 0 }}>수정</button>
