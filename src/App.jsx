@@ -188,6 +188,7 @@ export default function App() {
   const [filterDate, setFilterDate]       = useState(getToday());
   const [filterSession, setFilterSession] = useState(getCurrentSession());
   const [sortOrder, setSortOrder]         = useState("time"); // "time" | "alpha"
+  const [showUndone, setShowUndone]       = useState(false);
   const [addingSession, setAddingSession] = useState(null);
   const [editId, setEditId]               = useState(null);
   const [qtyMode, setQtyMode]             = useState("qty");
@@ -398,7 +399,7 @@ export default function App() {
     setHoPriority(item.priority); setHoContent(item.content); setShowHoForm(true);
   }
 
-  const filtered    = orders.filter(o => o.date === filterDate && (filterSession === "all" || o.session === filterSession));
+  const filtered    = orders.filter(o => o.date === filterDate && (filterSession === "all" || o.session === filterSession) && (!showUndone || !o.done));
   const morning     = filtered.filter(o => o.session === "morning");
   const afternoon   = filtered.filter(o => o.session === "afternoon");
   const doneCount   = filtered.filter(o => o.done).length;
@@ -488,7 +489,7 @@ export default function App() {
 
             {/* 정렬 버튼 + 주문 추가 */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>정렬</span>
                 {[["time","🕐 시간순"],["alpha","가나다순"]].map(([val, label]) => (
                   <button key={val} onClick={() => setSortOrder(val)} className="btn"
@@ -498,6 +499,12 @@ export default function App() {
                     {label}
                   </button>
                 ))}
+                <button onClick={() => setShowUndone(!showUndone)} className="btn"
+                  style={{ padding: "5px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
+                    background: showUndone ? "#ef4444" : "#f1f5f9",
+                    color: showUndone ? "#fff" : "#64748b" }}>
+                  {showUndone ? "🔴 미완료만" : "미완료만"}
+                </button>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => {
