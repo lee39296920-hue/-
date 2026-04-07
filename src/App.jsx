@@ -501,9 +501,9 @@ export default function App() {
                 ))}
                 <button onClick={() => setShowUndone(!showUndone)} className="btn"
                   style={{ padding: "5px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                    background: showUndone ? "#ef4444" : "#f1f5f9",
+                    background: showUndone ? "#1e3a5f" : "#f1f5f9",
                     color: showUndone ? "#fff" : "#64748b" }}>
-                  {showUndone ? "🔴 미완료만" : "미완료만"}
+                  미완료만
                 </button>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
