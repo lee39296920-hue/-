@@ -333,10 +333,16 @@ export default function App() {
     // 중복 체크 (신규 등록 시)
     if (!editId && !force) {
       const todayOrders = await api("orders", "GET", null, `?date=eq.${filterDate}`);
-      const isDup = Array.isArray(todayOrders) && todayOrders.some(o =>
-        o.drug_name && o.drug_name.trim() === drugName.trim() &&
-        (activeTab === "otc" ? o.order_type === "otc" : (o.order_type === "rx" || !o.order_type))
-      );
+      console.log("오늘 주문:", todayOrders);
+      console.log("입력한 약품명:", drugName.trim());
+      console.log("activeTab:", activeTab);
+      const isDup = Array.isArray(todayOrders) && todayOrders.some(o => {
+        const nameMatch = o.drug_name && o.drug_name.trim() === drugName.trim();
+        const typeMatch = activeTab === "otc" ? o.order_type === "otc" : (o.order_type === "rx" || !o.order_type);
+        console.log(o.drug_name, "| nameMatch:", nameMatch, "| typeMatch:", typeMatch);
+        return nameMatch && typeMatch;
+      });
+      console.log("isDup:", isDup);
       if (isDup) {
         setConfirmDup(true);
         return;
