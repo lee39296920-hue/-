@@ -335,7 +335,7 @@ export default function App() {
         o.date === filterDate &&
         o.session === addingSession &&
         o.drug_name.trim() === drugName.trim() &&
-        o.order_type === (activeTab === "otc" ? "otc" : "rx")
+        (activeTab === "otc" ? o.order_type === "otc" : (o.order_type === "rx" || !o.order_type))
       );
       if (isDup) {
         showToast(`⚠️ "${drugName.trim()}" 이미 등록된 약품이에요`);
