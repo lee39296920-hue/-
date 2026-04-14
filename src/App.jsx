@@ -329,6 +329,19 @@ export default function App() {
 
   async function handleSave() {
     if (!drugName.trim() || !quantity.trim()) return;
+    // 중복 체크 (신규 등록 시)
+    if (!editId) {
+      const isDup = orders.some(o =>
+        o.date === filterDate &&
+        o.session === addingSession &&
+        o.drug_name.trim() === drugName.trim() &&
+        o.order_type === (activeTab === "otc" ? "otc" : "rx")
+      );
+      if (isDup) {
+        showToast(`⚠️ "${drugName.trim()}" 이미 등록된 약품이에요`);
+        return;
+      }
+    }
     const timeStr = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
     if (editId) {
       await api("orders", "PATCH", {
@@ -339,7 +352,8 @@ export default function App() {
       await api("orders", "POST", {
         id: Date.now(), date: filterDate, session: addingSession,
         drug_name: drugName.trim(), quantity: quantity.trim(), qty_mode: qtyMode,
-        urgent: isUrgent, soldout: false, pack_type: packType, bottle_size: bottleSize, done: false, created_at: timeStr,
+        urgent: isUrgent, soldout: false, pack_type: packType, bottle_size: bottleSize,
+        order_type: activeTab === "otc" ? "otc" : "rx", done: false, created_at: timeStr,
       });
       showToast("주문이 등록되었습니다");
     }
@@ -399,7 +413,8 @@ export default function App() {
     setHoPriority(item.priority); setHoContent(item.content); setShowHoForm(true);
   }
 
-  const filtered    = orders.filter(o => o.date === filterDate && (filterSession === "all" || o.session === filterSession) && (!showUndone || !o.done));
+  const orderType   = activeTab === "otc" ? "otc" : "rx";
+  const filtered    = orders.filter(o => o.date === filterDate && (filterSession === "all" || o.session === filterSession) && (!showUndone || !o.done) && (o.order_type === orderType || (!o.order_type && orderType === "rx")));
   const morning     = filtered.filter(o => o.session === "morning");
   const afternoon   = filtered.filter(o => o.session === "afternoon");
   const doneCount   = filtered.filter(o => o.done).length;
@@ -448,12 +463,15 @@ export default function App() {
       {/* 메인 탭 */}
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0" }}>
         <div style={{ maxWidth: 520, margin: "0 auto", display: "flex" }}>
-          <button onClick={() => setActiveTab("order")} className="btn"
-            style={{ flex: 1, padding: "12px 0", fontSize: 14, fontWeight: 700,
-              background: "transparent", color: "#1e3a5f",
-              borderBottom: "2px solid #1e3a5f" }}>
-            📋 주문장
-          </button>
+          {[["order","📋 전문약"],["otc","💊 일반약"]].map(([key, label]) => (
+            <button key={key} onClick={() => { setActiveTab(key); setAddingSession(null); }} className="btn"
+              style={{ flex: 1, padding: "12px 0", fontSize: 14, fontWeight: 700,
+                background: "transparent",
+                color: activeTab === key ? "#1e3a5f" : "#94a3b8",
+                borderBottom: activeTab === key ? "2px solid #1e3a5f" : "2px solid transparent" }}>
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -468,7 +486,7 @@ export default function App() {
         )}
 
         {/* ===== 주문장 탭 ===== */}
-        {!loading && activeTab === "order" && (
+        {!loading && (activeTab === "order" || activeTab === "otc") && (
           <div>
             {/* 날짜 / 세션 필터 */}
             <div style={{ background: "#fff", borderRadius: 14, padding: "12px 14px", marginBottom: 12,
@@ -564,7 +582,7 @@ export default function App() {
                     onChange={e => {
                       const val = e.target.value;
                       setDrugName(val);
-                      if (val.length >= 2) {
+                      if (val.length >= 2 && activeTab !== "otc") {
                         const filtered = DRUG_LIST.filter(d => d.includes(val)).slice(0, 6);
                         setSuggestions(filtered);
                       } else {
