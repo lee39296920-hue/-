@@ -332,9 +332,9 @@ export default function App() {
     if (!drugName.trim() || !quantity.trim()) return;
     // 중복 체크 (신규 등록 시)
     if (!editId && !force) {
-      const isDup = orders.some(o =>
-        o.date === filterDate &&
-        o.drug_name.trim() === drugName.trim() &&
+      const todayOrders = await api("orders", "GET", null, `?date=eq.${filterDate}`);
+      const isDup = Array.isArray(todayOrders) && todayOrders.some(o =>
+        o.drug_name && o.drug_name.trim() === drugName.trim() &&
         (activeTab === "otc" ? o.order_type === "otc" : (o.order_type === "rx" || !o.order_type))
       );
       if (isDup) {
