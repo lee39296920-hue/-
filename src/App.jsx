@@ -197,6 +197,7 @@ export default function App() {
   const [isUrgent, setIsUrgent]           = useState(false);
   const [isSoldOut, setIsSoldOut]         = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmDup, setConfirmDup]       = useState(false);
   const [toast, setToast]                 = useState(null);
   const [activeTab, setActiveTab]         = useState("order");
   const [hoDate, setHoDate]               = useState(getToday());
@@ -327,10 +328,10 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function handleSave() {
+  async function handleSave(force = false) {
     if (!drugName.trim() || !quantity.trim()) return;
     // 중복 체크 (신규 등록 시)
-    if (!editId) {
+    if (!editId && !force) {
       const isDup = orders.some(o =>
         o.date === filterDate &&
         o.session === addingSession &&
@@ -338,7 +339,7 @@ export default function App() {
         (activeTab === "otc" ? o.order_type === "otc" : (o.order_type === "rx" || !o.order_type))
       );
       if (isDup) {
-        showToast(`⚠️ "${drugName.trim()}" 이미 등록된 약품이에요`);
+        setConfirmDup(true);
         return;
       }
     }
@@ -872,6 +873,25 @@ export default function App() {
                 style={{ flex: 1, padding: 10, borderRadius: 10, background: "#f1f5f9", color: "#475569", fontWeight: 600 }}>취소</button>
               <button onClick={() => deleteOrder(confirmDelete)} className="btn"
                 style={{ flex: 1, padding: 10, borderRadius: 10, background: "#ef4444", color: "#fff", fontWeight: 700 }}>삭제</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 중복 확인 모달 */}
+      {confirmDup && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 200,
+          display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="fade" style={{ background: "#fff", borderRadius: 16, padding: "24px 20px",
+            width: 290, textAlign: "center", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
+            <div style={{ fontSize: 30, marginBottom: 8 }}>⚠️</div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: "#1e293b", marginBottom: 5 }}>이미 등록된 약품이에요</div>
+            <div style={{ color: "#64748b", fontSize: 13, marginBottom: 18 }}>그래도 등록할까요?</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setConfirmDup(false)} className="btn"
+                style={{ flex: 1, padding: 10, borderRadius: 10, background: "#f1f5f9", color: "#475569", fontWeight: 600 }}>취소</button>
+              <button onClick={() => { setConfirmDup(false); handleSave(true); }} className="btn"
+                style={{ flex: 1, padding: 10, borderRadius: 10, background: "#2563eb", color: "#fff", fontWeight: 700 }}>등록</button>
             </div>
           </div>
         </div>
