@@ -334,7 +334,6 @@ export default function App() {
     if (!editId && !force) {
       const isDup = orders.some(o =>
         o.date === filterDate &&
-        o.session === addingSession &&
         o.drug_name.trim() === drugName.trim() &&
         (activeTab === "otc" ? o.order_type === "otc" : (o.order_type === "rx" || !o.order_type))
       );
