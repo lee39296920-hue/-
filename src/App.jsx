@@ -363,7 +363,20 @@ function InvoiceScanner() {
     if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || "API 오류"); }
     const data = await res.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    return JSON.parse(text.replace(/```json|```/g, "").trim());
+    const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
+    // 보험코드 후처리: 행번호 붙어서 10~11자리면 앞자리 제거해 9자리로
+    if (parsed.items) {
+      parsed.items = parsed.items.map(item => {
+        if (item.insurance_code) {
+          const code = String(item.insurance_code).replace(/ /g, "").replace(/[^0-9]/g, "");
+          if (code.length === 10) item.insurance_code = code.slice(1);
+          else if (code.length === 11) item.insurance_code = code.slice(2);
+          else item.insurance_code = code;
+        }
+        return item;
+      });
+    }
+    return parsed;
   };
 
   const fmtNum = (n) => n ? Number(n).toLocaleString() : "-";
@@ -579,61 +592,64 @@ function InvoiceScanner() {
             </div>
           </div>
 
-          {/* 아이템 리스트 - 컴팩트 카드형 + 수정 기능 */}
-          <div style={{ padding: "8px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
-            {(r.items||[]).map((item, idx) => (
-              <div key={idx} style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 12px", borderLeft: "3px solid #2563eb" }}>
-                {editingItem?.invoiceId === r.id && editingItem?.idx === idx ? (
-                  <div>
-                    <div style={{ fontSize: 11, color: "#2563eb", fontWeight: 700, marginBottom: 8 }}>✏️ 수정 중</div>
-                    {[["name","약품명"],["spec","규격"],["maker","제조사"],["quantity","수량"],["unit_price","단가"],["amount","금액"],["insurance_code","보험코드"],["lot","제조번호"],["expiry","유효기한"]].map(([field, label]) => (
-                      <div key={field} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                        <span style={{ fontSize: 11, color: "#94a3b8", width: 52, flexShrink: 0 }}>{label}</span>
-                        <input
-                          value={editingItem.data?.[field] ?? ""}
-                          onChange={e => setEditingItem(prev => ({ ...prev, data: { ...prev.data, [field]: e.target.value } }))}
-                          style={{ ...iStyle, fontSize: 12, padding: "5px 8px", flex: 1 }}
-                        />
-                      </div>
-                    ))}
-                    <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                      <button onClick={() => setEditingItem(null)} className="btn"
-                        style={{ flex: 1, padding: "8px", borderRadius: 8, background: "#f1f5f9", color: "#64748b", fontSize: 12, fontWeight: 700 }}>취소</button>
-                      <button onClick={() => updateItem(r.id, idx, editingItem.data || {})} className="btn"
-                        style={{ flex: 2, padding: "8px", borderRadius: 8, background: "#1e3a5f", color: "#fff", fontSize: 12, fontWeight: 700 }}>저장</button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b", lineHeight: 1.3 }}>
-                          <span style={{ color: "#94a3b8", fontSize: 11, marginRight: 4 }}>{idx+1}.</span>
-                          {item.name}
-                        </div>
-                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-                          {item.spec && <span style={{ marginRight: 8 }}>{item.spec}</span>}
-                          {item.maker && <span style={{ color: "#94a3b8" }}>{item.maker}</span>}
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexShrink: 0 }}>
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ fontWeight: 700, fontSize: 13, color: "#1e3a5f" }}>{fmtNum(item.amount)}원</div>
-                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 1 }}>{item.quantity}개 × {fmtNum(item.unit_price)}원</div>
-                        </div>
+          {/* 표 형식 + 행 클릭시 수정 */}
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: "#f1f5f9" }}>
+                  {["#","약품명","규격","수량","단가","금액","보험코드","제조번호","유효기한",""].map(h => (
+                    <th key={h} style={{ padding: "7px 8px", textAlign: "left", fontSize: 10, fontWeight: 700,
+                      color: "#64748b", borderBottom: "2px solid #e2e8f0", whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(r.items||[]).map((item, idx) => (
+                  editingItem?.invoiceId === r.id && editingItem?.idx === idx ? (
+                    <tr key={idx} style={{ background: "#eff6ff" }}>
+                      <td style={{ padding: "6px 8px", color: "#94a3b8", fontSize: 11 }}>{idx+1}</td>
+                      {[["name",120],["spec",60],["quantity",40],["unit_price",70],["amount",70],["insurance_code",90],["lot",80],["expiry",80]].map(([field, w]) => (
+                        <td key={field} style={{ padding: "4px 4px" }}>
+                          <input
+                            value={editingItem.data?.[field] ?? ""}
+                            onChange={e => setEditingItem(prev => ({ ...prev, data: { ...prev.data, [field]: e.target.value } }))}
+                            style={{ width: w, padding: "4px 6px", borderRadius: 6, border: "1.5px solid #2563eb",
+                              fontSize: 12, fontFamily: "inherit", outline: "none", background: "#fff" }}
+                          />
+                        </td>
+                      ))}
+                      <td style={{ padding: "4px 8px", whiteSpace: "nowrap" }}>
+                        <button onClick={() => updateItem(r.id, idx, editingItem.data || {})} className="btn"
+                          style={{ padding: "4px 8px", borderRadius: 6, background: "#1e3a5f", color: "#fff", fontSize: 11, fontWeight: 700, marginRight: 4 }}>저장</button>
+                        <button onClick={() => setEditingItem(null)} className="btn"
+                          style={{ padding: "4px 8px", borderRadius: 6, background: "#f1f5f9", color: "#64748b", fontSize: 11, fontWeight: 700 }}>취소</button>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}
+                      onMouseEnter={e => e.currentTarget.style.background = "#fafbff"}
+                      onMouseLeave={e => e.currentTarget.style.background = ""}>
+                      <td style={{ padding: "7px 8px", color: "#94a3b8", fontSize: 11 }}>{idx+1}</td>
+                      <td style={{ padding: "7px 8px", fontWeight: 600, color: "#1e293b", minWidth: 120 }}>
+                        {item.name}
+                        {item.maker && <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 400 }}>{item.maker}</div>}
+                      </td>
+                      <td style={{ padding: "7px 8px", color: "#64748b", whiteSpace: "nowrap" }}>{item.spec||"-"}</td>
+                      <td style={{ padding: "7px 8px", fontWeight: 700, textAlign: "right" }}>{item.quantity??"-"}</td>
+                      <td style={{ padding: "7px 8px", textAlign: "right", fontFamily: "monospace" }}>{fmtNum(item.unit_price)}</td>
+                      <td style={{ padding: "7px 8px", textAlign: "right", fontWeight: 600, color: "#1e3a5f", fontFamily: "monospace" }}>{fmtNum(item.amount)}</td>
+                      <td style={{ padding: "7px 8px", fontFamily: "monospace", fontSize: 11, color: "#64748b" }}>{item.insurance_code||"-"}</td>
+                      <td style={{ padding: "7px 8px", fontFamily: "monospace", fontSize: 11, color: "#94a3b8" }}>{item.lot||"-"}</td>
+                      <td style={{ padding: "7px 8px", fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>{fmtExpiry(item.expiry)}</td>
+                      <td style={{ padding: "7px 8px" }}>
                         <button onClick={() => setEditingItem({ invoiceId: r.id, idx, data: { name: item.name||"", spec: item.spec||"", maker: item.maker||"", quantity: String(item.quantity||""), unit_price: String(item.unit_price||""), amount: String(item.amount||""), insurance_code: item.insurance_code||"", lot: item.lot||"", expiry: item.expiry||"" } })} className="btn"
-                          style={{ padding: "3px 7px", borderRadius: 6, background: "#eff6ff", color: "#2563eb", fontSize: 11, fontWeight: 700 }}>수정</button>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
-                      {item.insurance_code && <span style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace" }}>보험 {item.insurance_code}</span>}
-                      {item.lot && <span style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace" }}>제조 {item.lot}</span>}
-                      {item.expiry && <span style={{ fontSize: 10, color: "#94a3b8" }}>유효 {fmtExpiry(item.expiry)}</span>}
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
+                          style={{ padding: "3px 7px", borderRadius: 6, background: "#eff6ff", color: "#2563eb", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>수정</button>
+                      </td>
+                    </tr>
+                  )
+                ))}
+              </tbody>
+            </table>
           </div>
 
           {/* 복사 버튼 */}
