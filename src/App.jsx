@@ -247,14 +247,20 @@ function InvoiceScanner() {
         const base64 = item.thumb.split(",")[1];
         const result = await callGemini(geminiKey, base64, item.file.type || "image/jpeg");
         const dbId = await saveToDB(result, item.name);
-        const savedResult = { id: dbId || item.id, fileName: item.name, thumb: item.thumb, ...result };
+        const savedResult = { 
+          id: dbId || item.id, 
+          fileName: item.name, 
+          thumb: item.thumb, 
+          ...result,
+          date: result.date || getToday()
+        };
         setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: "done", data: result } : q));
         setResults(prev => [savedResult, ...prev]);
       } catch (e) {
         setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: "error", errorMsg: e.message } : q));
       }
       setProgress({ done: i + 1, total: waitItems.length });
-      if (i < waitItems.length - 1) await sleep(1200);
+      if (i < waitItems.length - 1) await sleep(5000);
     }
     setIsRunning(false);
   };
@@ -315,7 +321,7 @@ function InvoiceScanner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
-          generationConfig: { temperature: 0.05, maxOutputTokens: 3000 }
+          generationConfig: { temperature: 0.05, maxOutputTokens: 8000 }
         })
       }
     );
