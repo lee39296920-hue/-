@@ -273,18 +273,18 @@ function InvoiceScanner() {
 아래 JSON 형식으로만 응답하세요. 다른 텍스트나 마크다운 없이 JSON만 출력하세요.
 
 {
-  "supplier": "도매상 회사명",
+  "supplier": "도매상 회사명 (예: 백제약품, 지오영, 복산나이스, 신덕팜, KS팜 등 본사명으로 추출, 지점명 제외)",
   "date": "거래일자 YYYY-MM-DD",
   "total": 합계금액숫자,
   "items": [
     {
-      "name": "약품명 (규격 포함)",
+      "name": "약품명만 정확하게 (예: 넥시움정20mg, 리피토정10밀리그램)",
       "maker": "제조사명",
-      "spec": "규격",
+      "spec": "규격 (예: 30T, 100C, 500ml)",
       "quantity": 수량숫자,
       "unit_price": 단가숫자,
       "amount": 금액숫자,
-      "insurance_code": "보험코드",
+      "insurance_code": "보험코드 숫자",
       "lot": "제조번호",
       "expiry": "유효기한 YYYYMMDD"
     }
@@ -292,6 +292,8 @@ function InvoiceScanner() {
 }
 
 주의:
+- 약품명은 인쇄된 글자를 매우 정확하게 읽어주세요. 비슷한 글자를 혼동하지 마세요 (넥↔벽, 시↔씨 등)
+- 한국 의약품 이름이므로 맥락을 고려해 정확히 읽어주세요
 - 수량은 손글씨 동그라미 숫자로 표기되는 경우가 많으니 잘 읽어주세요
 - 금액은 쉼표 없는 순수 숫자
 - 없는 항목은 빈 문자열 또는 0`;
@@ -502,36 +504,36 @@ function InvoiceScanner() {
             </div>
           </div>
 
-          {/* 테이블 */}
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-              <thead style={{ background: "#f8fafc" }}>
-                <tr>
-                  {["No","약품명","규격","수량","단가","금액","보험코드","제조번호","유효기한"].map(h => (
-                    <th key={h} style={{ padding: "8px 10px", textAlign: h==="수량"||h==="단가"||h==="금액" ? "right" : "left",
-                      fontSize: 10, fontWeight: 700, color: "#94a3b8", borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(r.items||[]).map((item, idx) => (
-                  <tr key={idx} style={{ borderBottom: idx < r.items.length-1 ? "1px solid #f8fafc" : "none" }}>
-                    <td style={{ padding: "8px 10px", color: "#94a3b8", textAlign: "center" }}>{idx+1}</td>
-                    <td style={{ padding: "8px 10px" }}>
-                      <div style={{ fontWeight: 600, color: "#1e293b" }}>{item.name}</div>
-                      {item.maker && <div style={{ fontSize: 11, color: "#94a3b8" }}>{item.maker}</div>}
-                    </td>
-                    <td style={{ padding: "8px 10px", color: "#64748b" }}>{item.spec||"-"}</td>
-                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700 }}>{item.quantity??"-"}</td>
-                    <td style={{ padding: "8px 10px", textAlign: "right", fontFamily: "monospace" }}>{fmtNum(item.unit_price)}</td>
-                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e3a5f", fontFamily: "monospace" }}>{fmtNum(item.amount)}</td>
-                    <td style={{ padding: "8px 10px", fontFamily: "monospace", fontSize: 11, color: "#64748b" }}>{item.insurance_code||"-"}</td>
-                    <td style={{ padding: "8px 10px", fontFamily: "monospace", fontSize: 11, color: "#64748b" }}>{item.lot||"-"}</td>
-                    <td style={{ padding: "8px 10px", fontSize: 11, color: "#94a3b8" }}>{fmtExpiry(item.expiry)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* 아이템 리스트 - 컴팩트 카드형 */}
+          <div style={{ padding: "8px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
+            {(r.items||[]).map((item, idx) => (
+              <div key={idx} style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 12px",
+                borderLeft: "3px solid #2563eb" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b", lineHeight: 1.3 }}>
+                      <span style={{ color: "#94a3b8", fontSize: 11, marginRight: 4 }}>{idx+1}.</span>
+                      {item.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                      {item.spec && <span style={{ marginRight: 8 }}>{item.spec}</span>}
+                      {item.maker && <span style={{ color: "#94a3b8" }}>{item.maker}</span>}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#1e3a5f" }}>{fmtNum(item.amount)}원</div>
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 1 }}>
+                      {item.quantity}개 × {fmtNum(item.unit_price)}원
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                  {item.insurance_code && <span style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace" }}>보험 {item.insurance_code}</span>}
+                  {item.lot && <span style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace" }}>제조 {item.lot}</span>}
+                  {item.expiry && <span style={{ fontSize: 10, color: "#94a3b8" }}>유효 {fmtExpiry(item.expiry)}</span>}
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* 복사 버튼 */}
