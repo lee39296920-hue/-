@@ -159,23 +159,67 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
 
 // ===================== 거래명세서 스캐너 컴포넌트 =====================
 function InvoiceScanner() {
-  const [geminiKey, setGeminiKey]     = useState(() => localStorage.getItem("gemini_key") || "");
+  const [geminiKey, setGeminiKey]       = useState(() => localStorage.getItem("gemini_key") || "");
   const [showKeyInput, setShowKeyInput] = useState(false);
-  const [queue, setQueue]             = useState([]);
-  const [results, setResults]         = useState([]);
-  const [isRunning, setIsRunning]     = useState(false);
-  const [progress, setProgress]       = useState({ done: 0, total: 0 });
-  const [toast, setToast]             = useState(null);
-  const idRef                         = useRef(0);
+  const [queue, setQueue]               = useState([]);
+  const [results, setResults]           = useState([]);
+  const [isRunning, setIsRunning]       = useState(false);
+  const [progress, setProgress]         = useState({ done: 0, total: 0 });
+  const [toast, setToast]               = useState(null);
+  const [loadingDB, setLoadingDB]       = useState(true);
+  const idRef                           = useRef(0);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
+  const saveKey = (key) => { setGeminiKey(key); localStorage.setItem("gemini_key", key); };
+  const keyValid = geminiKey.startsWith("AIza") && geminiKey.length > 20;
 
-  const saveKey = (key) => {
-    setGeminiKey(key);
-    localStorage.setItem("gemini_key", key);
+  // Supabase에서 저장된 결과 불러오기
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const inv = await api("invoices", "GET", null, "?order=created_at.desc&limit=30");
+        if (!Array.isArray(inv) || inv.length === 0) { setLoadingDB(false); return; }
+        const loaded = [];
+        for (const r of inv) {
+          const items = await api("invoice_items", "GET", null, `?invoice_id=eq.${r.id}`);
+          loaded.push({ id: r.id, fileName: r.file_name, supplier: r.supplier, date: r.date, total: r.total, items: Array.isArray(items) ? items : [] });
+        }
+        setResults(loaded);
+      } catch(e) {}
+      setLoadingDB(false);
+    };
+    load();
+  }, []);
+
+  // Supabase에 저장
+  const saveToDB = async (result, fileName) => {
+    try {
+      const invRes = await fetch(`${SUPABASE_URL}/rest/v1/invoices`, {
+        method: "POST",
+        headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", "Prefer": "return=representation" },
+        body: JSON.stringify({ supplier: result.supplier, date: result.date, total: result.total || 0, file_name: fileName })
+      });
+      const invData = await invRes.json();
+      const invoiceId = invData[0]?.id;
+      if (!invoiceId) return null;
+      const itemsToInsert = (result.items || []).map(i => ({
+        invoice_id: invoiceId, name: i.name || "", maker: i.maker || "", spec: i.spec || "",
+        quantity: Number(i.quantity) || 0, unit_price: Number(i.unit_price) || 0, amount: Number(i.amount) || 0,
+        insurance_code: i.insurance_code || "", lot: i.lot || "", expiry: i.expiry || ""
+      }));
+      if (itemsToInsert.length > 0) {
+        await api("invoice_items", "POST", itemsToInsert);
+      }
+      return invoiceId;
+    } catch(e) { return null; }
   };
 
-  const keyValid = geminiKey.startsWith("AIza") && geminiKey.length > 20;
+  const deleteResult = async (id) => {
+    await api("invoice_items", "DELETE", null, `?invoice_id=eq.${id}`);
+    await api("invoices", "DELETE", null, `?id=eq.${id}`);
+    setResults(prev => prev.filter(r => r.id !== id));
+    showToast("삭제됐습니다");
+  };
 
   const handleFiles = async (files) => {
     const newItems = [];
@@ -192,23 +236,21 @@ function InvoiceScanner() {
     if (!keyValid) { showToast("Gemini API 키를 먼저 설정해주세요"); setShowKeyInput(true); return; }
     const waitItems = queue.filter(q => q.status === "wait");
     if (!waitItems.length) return;
-
     setIsRunning(true);
     setProgress({ done: 0, total: waitItems.length });
-
     for (let i = 0; i < waitItems.length; i++) {
       const item = waitItems[i];
       setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: "processing" } : q));
-
       try {
         const base64 = item.thumb.split(",")[1];
         const result = await callGemini(geminiKey, base64, item.file.type || "image/jpeg");
+        const dbId = await saveToDB(result, item.name);
+        const savedResult = { id: dbId || item.id, fileName: item.name, ...result };
         setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: "done", data: result } : q));
-        setResults(prev => [...prev, { id: item.id, fileName: item.name, ...result }]);
+        setResults(prev => [savedResult, ...prev]);
       } catch (e) {
         setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: "error", errorMsg: e.message } : q));
       }
-
       setProgress({ done: i + 1, total: waitItems.length });
       if (i < waitItems.length - 1) await sleep(1200);
     }
@@ -244,7 +286,7 @@ function InvoiceScanner() {
 - 없는 항목은 빈 문자열 또는 0`;
 
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -299,13 +341,8 @@ function InvoiceScanner() {
         <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600, flexShrink: 0 }}>🔑 Gemini API</span>
         {showKeyInput ? (
           <>
-            <input
-              type="password"
-              placeholder="AIza..."
-              defaultValue={geminiKey}
-              onChange={e => saveKey(e.target.value)}
-              style={{ ...iStyle, flex: 1, fontSize: 12 }}
-            />
+            <input type="password" placeholder="AIza..." defaultValue={geminiKey}
+              onChange={e => saveKey(e.target.value)} style={{ ...iStyle, flex: 1, fontSize: 12 }} />
             <button onClick={() => setShowKeyInput(false)} className="btn"
               style={{ padding: "6px 12px", borderRadius: 8, background: "#1e3a5f", color: "#fff", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
               저장
@@ -359,7 +396,6 @@ function InvoiceScanner() {
               </button>
             </div>
 
-            {/* 진행바 */}
             {isRunning && (
               <div style={{ marginBottom: 10 }}>
                 <div style={{ background: "#e2e8f0", borderRadius: 10, height: 6, overflow: "hidden" }}>
@@ -393,7 +429,7 @@ function InvoiceScanner() {
                     color: item.status === "done" ? "#059669" : item.status === "error" ? "#ef4444" : item.status === "processing" ? "#2563eb" : "#94a3b8" }}>
                     {item.status === "done" ? "✓ 완료" : item.status === "error" ? "오류" : item.status === "processing" ? "분석중" : "대기"}
                   </span>
-                  {item.status === "wait" && (
+                  {(item.status === "wait" || item.status === "error") && (
                     <button onClick={() => removeItem(item.id)} className="btn"
                       style={{ background: "none", border: "none", color: "#94a3b8", fontSize: 16, padding: "2px", flexShrink: 0 }}>✕</button>
                   )}
@@ -433,7 +469,12 @@ function InvoiceScanner() {
               <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{r.supplier || "도매상 미상"}</div>
               <div style={{ color: "#93c5fd", fontSize: 12, marginTop: 2 }}>{r.date}</div>
             </div>
-            <div style={{ color: "#e0f2fe", fontWeight: 700, fontSize: 14 }}>{fmtNum(r.total)}원</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ color: "#e0f2fe", fontWeight: 700, fontSize: 14 }}>{fmtNum(r.total)}원</div>
+              <button onClick={() => deleteResult(r.id)} className="btn"
+                style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 8,
+                  padding: "4px 8px", fontSize: 11, fontWeight: 700 }}>삭제</button>
+            </div>
           </div>
 
           {/* 요약 */}
