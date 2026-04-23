@@ -20,7 +20,8 @@ const api = async (table, method = "GET", body = null, filter = "") => {
 
 function getToday() {
   const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return `${kst.getUTCFullYear()}-${String(kst.getUTCMonth()+1).padStart(2,"0")}-${String(kst.getUTCDate()).padStart(2,"0")}`;
 }
 function getTodayLabel() { return new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "long" }); }
 function getCurrentSession() {
@@ -185,7 +186,9 @@ function InvoiceScanner() {
         const loaded = [];
         for (const r of inv) {
           const items = await api("invoice_items", "GET", null, `?invoice_id=eq.${r.id}`);
-          const uploadDate = r.created_at ? r.created_at.slice(0, 10) : r.date;
+          const uploadDate = r.created_at 
+            ? new Date(new Date(r.created_at).getTime() + 9*60*60*1000).toISOString().slice(0,10)
+            : getToday();
           loaded.push({ id: r.id, fileName: r.file_name, supplier: r.supplier, date: r.date, uploadDate, total: r.total, items: Array.isArray(items) ? items : [] });
         }
         setResults(loaded);
