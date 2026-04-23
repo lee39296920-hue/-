@@ -168,6 +168,7 @@ function InvoiceScanner() {
   const [toast, setToast]               = useState(null);
   const [loadingDB, setLoadingDB]       = useState(true);
   const [previewImg, setPreviewImg]     = useState(null);
+  const [filterDate, setFilterDate]     = useState(getToday());
   const idRef                           = useRef(0);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
@@ -178,7 +179,7 @@ function InvoiceScanner() {
   useEffect(() => {
     const load = async () => {
       try {
-        const inv = await api("invoices", "GET", null, "?order=created_at.desc&limit=30");
+        const inv = await api("invoices", "GET", null, "?order=created_at.desc&limit=100");
         if (!Array.isArray(inv) || inv.length === 0) { setLoadingDB(false); return; }
         const loaded = [];
         for (const r of inv) {
@@ -274,31 +275,38 @@ function InvoiceScanner() {
 아래 JSON 형식으로만 응답하세요. 다른 텍스트나 마크다운 없이 JSON만 출력하세요.
 
 {
-  "supplier": "도매상 회사명 (예: 백제약품, 지오영, 복산나이스, 신덕팜, KS팜 등 본사명으로 추출, 지점명 제외)",
+  "supplier": "도매상 회사명 (예: 백제약품, 지오영, 복산나이스, 신덕팜, KS팜 등 본사명으로, 지점명 제외)",
   "date": "거래일자 YYYY-MM-DD",
   "total": 합계금액숫자,
   "items": [
     {
-      "name": "약품명만 정확하게 (예: 넥시움정20mg, 리피토정10밀리그램)",
+      "name": "약품명 정확하게",
       "maker": "제조사명",
-      "spec": "규격 (예: 30T, 100C, 500ml)",
+      "spec": "규격",
       "quantity": 수량숫자,
       "unit_price": 단가숫자,
       "amount": 금액숫자,
-      "insurance_code": "보험코드 (반드시 추출, 숫자 9자리, 명세서에 반드시 있음)",
+      "insurance_code": "보험코드 9자리 숫자 (반드시 입력)",
       "lot": "제조번호",
       "expiry": "유효기한 YYYYMMDD"
     }
   ]
 }
 
-주의:
-- 약품명은 인쇄된 글자를 매우 정확하게 읽어주세요. 비슷한 글자를 혼동하지 마세요 (넥↔벽, 시↔씨 등)
-- 한국 의약품 이름이므로 맥락을 고려해 정확히 읽어주세요
-- 보험코드는 각 약품마다 반드시 존재합니다. 표에서 숫자 9자리를 찾아 반드시 입력하세요
-- 수량은 손글씨 동그라미 숫자로 표기되는 경우가 많으니 잘 읽어주세요
+[매우 중요] 약품명 인식 규칙:
+- 이 명세서의 약품명은 모두 실제 한국 시판 의약품입니다
+- 글자를 하나하나 정확히 읽어주세요. 흐릿하거나 불명확한 글자도 문맥상 가장 적합한 약품명으로 판단하세요
+- 자주 혼동되는 글자 주의: ㄴ↔ㄱ, 넥↔벽, 시↔씨, 레↔데, 크↔트, 로↔보 등
+- 약품명 예시: 넥시움, 리피토, 아모잘탄, 프리그렐, 케이캡, 크레스토, 자디앙, 트라젠타 등
+
+[보험코드 규칙]:
+- 보험코드는 모든 약품에 반드시 존재하는 9자리 숫자입니다
+- 표에서 숫자 9자리를 찾아 빠짐없이 입력하세요
+
+[기타]:
+- 수량은 손글씨 동그라미 숫자로 표기됩니다
 - 금액은 쉼표 없는 순수 숫자
-- 없는 항목은 빈 문자열 또는 0`;
+- 없는 항목만 빈 문자열 또는 0`;
 
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
@@ -336,9 +344,9 @@ function InvoiceScanner() {
   };
 
   const copyAllTab = () => {
-    if (!results.length) return;
+    if (!filteredResults.length) return;
     let out = "";
-    results.forEach((r, i) => {
+    filteredResults.forEach((r, i) => {
       if (i > 0) out += "\n\n";
       out += `[${r.supplier}] ${r.date} / 합계 ${fmtNum(r.total)}원\n약품명\t규격\t수량\t단가\t금액\t보험코드\t제조번호\t유효기한\n`;
       out += (r.items||[]).map(i => `${i.name}\t${i.spec||""}\t${i.quantity}\t${i.unit_price}\t${i.amount}\t${i.insurance_code||""}\t${i.lot||""}\t${i.expiry||""}`).join("\n");
@@ -347,9 +355,20 @@ function InvoiceScanner() {
   };
 
   const waitingCount = queue.filter(q => q.status === "wait").length;
+  const filteredResults = results.filter(r => r.date === filterDate);
 
   return (
     <div>
+      {/* 날짜 필터 */}
+      <div style={{ background: "#fff", borderRadius: 14, padding: "12px 14px", marginBottom: 12,
+        boxShadow: "0 1px 6px rgba(0,0,0,0.06)", display: "flex", alignItems: "center", gap: 10 }}>
+        <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
+          style={{ ...iStyle, flex: 1 }} />
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#1e3a5f", flexShrink: 0 }}>
+          {filteredResults.length}건
+        </div>
+      </div>
+
       {/* API 키 설정 */}
       <div style={{ background: "#fff", borderRadius: 14, padding: "12px 14px", marginBottom: 12,
         boxShadow: "0 1px 6px rgba(0,0,0,0.06)", display: "flex", alignItems: "center", gap: 10 }}>
@@ -456,26 +475,26 @@ function InvoiceScanner() {
       </div>
 
       {/* 전체 복사 버튼 */}
-      {results.length > 1 && (
+      {filteredResults.length > 1 && (
         <div style={{ background: "#fff", borderRadius: 14, padding: "12px 14px", marginBottom: 12,
           boxShadow: "0 1px 6px rgba(0,0,0,0.06)", display: "flex", gap: 8 }}>
           <button onClick={copyAllTab} className="btn"
             style={{ flex: 1, padding: "10px", borderRadius: 10, background: "#1e3a5f", color: "#fff",
               fontSize: 13, fontWeight: 700 }}>
-            📋 전체 {results.length}건 일괄 복사
+            📋 전체 {filteredResults.length}건 일괄 복사
           </button>
         </div>
       )}
 
       {/* 결과 카드들 */}
-      {results.length === 0 && queue.length === 0 && (
+      {filteredResults.length === 0 && queue.length === 0 && (
         <div style={{ textAlign: "center", padding: "52px 0", color: "#94a3b8" }}>
           <div style={{ fontSize: 44, marginBottom: 10 }}>📄</div>
           <div style={{ fontWeight: 600, fontSize: 14 }}>명세서를 업로드하면 여기에 결과가 쌓입니다</div>
         </div>
       )}
 
-      {results.map(r => (
+      {filteredResults.map(r => (
         <div key={r.id} style={{ background: "#fff", borderRadius: 14, overflow: "hidden",
           boxShadow: "0 1px 6px rgba(0,0,0,0.06)", marginBottom: 12 }}>
           {/* 카드 헤더 */}
@@ -513,36 +532,36 @@ function InvoiceScanner() {
             </div>
           </div>
 
-          {/* 아이템 리스트 - 컴팩트 카드형 */}
-          <div style={{ padding: "8px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
-            {(r.items||[]).map((item, idx) => (
-              <div key={idx} style={{ background: "#f8fafc", borderRadius: 10, padding: "10px 12px",
-                borderLeft: "3px solid #2563eb" }}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b", lineHeight: 1.3 }}>
-                      <span style={{ color: "#94a3b8", fontSize: 11, marginRight: 4 }}>{idx+1}.</span>
-                      {item.name}
-                    </div>
-                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-                      {item.spec && <span style={{ marginRight: 8 }}>{item.spec}</span>}
-                      {item.maker && <span style={{ color: "#94a3b8" }}>{item.maker}</span>}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13, color: "#1e3a5f" }}>{fmtNum(item.amount)}원</div>
-                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 1 }}>
-                      {item.quantity}개 × {fmtNum(item.unit_price)}원
-                    </div>
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
-                  {item.insurance_code && <span style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace" }}>보험 {item.insurance_code}</span>}
-                  {item.lot && <span style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace" }}>제조 {item.lot}</span>}
-                  {item.expiry && <span style={{ fontSize: 10, color: "#94a3b8" }}>유효 {fmtExpiry(item.expiry)}</span>}
-                </div>
-              </div>
-            ))}
+          {/* 테이블 */}
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead style={{ background: "#f8fafc" }}>
+                <tr>
+                  {["No","약품명","규격","수량","단가","금액","보험코드","제조번호","유효기한"].map(h => (
+                    <th key={h} style={{ padding: "8px 10px", textAlign: h==="수량"||h==="단가"||h==="금액" ? "right" : "left",
+                      fontSize: 10, fontWeight: 700, color: "#94a3b8", borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(r.items||[]).map((item, idx) => (
+                  <tr key={idx} style={{ borderBottom: idx < r.items.length-1 ? "1px solid #f8fafc" : "none" }}>
+                    <td style={{ padding: "8px 10px", color: "#94a3b8", textAlign: "center" }}>{idx+1}</td>
+                    <td style={{ padding: "8px 10px" }}>
+                      <div style={{ fontWeight: 600, color: "#1e293b" }}>{item.name}</div>
+                      {item.maker && <div style={{ fontSize: 11, color: "#94a3b8" }}>{item.maker}</div>}
+                    </td>
+                    <td style={{ padding: "8px 10px", color: "#64748b", whiteSpace: "nowrap" }}>{item.spec||"-"}</td>
+                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700 }}>{item.quantity??"-"}</td>
+                    <td style={{ padding: "8px 10px", textAlign: "right", fontFamily: "monospace", whiteSpace: "nowrap" }}>{fmtNum(item.unit_price)}</td>
+                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e3a5f", fontFamily: "monospace", whiteSpace: "nowrap" }}>{fmtNum(item.amount)}</td>
+                    <td style={{ padding: "8px 10px", fontFamily: "monospace", fontSize: 11, color: "#64748b", whiteSpace: "nowrap" }}>{item.insurance_code||"-"}</td>
+                    <td style={{ padding: "8px 10px", fontFamily: "monospace", fontSize: 11, color: "#64748b", whiteSpace: "nowrap" }}>{item.lot||"-"}</td>
+                    <td style={{ padding: "8px 10px", fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap" }}>{fmtExpiry(item.expiry)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           {/* 복사 버튼 */}
