@@ -206,7 +206,7 @@ function InvoiceScanner() {
         setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: "done", data: result } : q));
         setResults(prev => [...prev, { id: item.id, fileName: item.name, ...result }]);
       } catch (e) {
-        setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: "error" } : q));
+        setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: "error", errorMsg: e.message } : q));
       }
 
       setProgress({ done: i + 1, total: waitItems.length });
@@ -385,7 +385,7 @@ function InvoiceScanner() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</div>
                     <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
-                      {item.data ? `${item.data.supplier} · ${item.data.date}` : item.status === "error" ? "인식 실패" : "대기중"}
+                      {item.data ? `${item.data.supplier} · ${item.data.date}` : item.status === "error" ? (item.errorMsg || "인식 실패") : "대기중"}
                     </div>
                   </div>
                   <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 20, flexShrink: 0,
