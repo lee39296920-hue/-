@@ -185,7 +185,8 @@ function InvoiceScanner() {
         const loaded = [];
         for (const r of inv) {
           const items = await api("invoice_items", "GET", null, `?invoice_id=eq.${r.id}`);
-          loaded.push({ id: r.id, fileName: r.file_name, supplier: r.supplier, date: r.date, total: r.total, items: Array.isArray(items) ? items : [] });
+          const uploadDate = r.created_at ? r.created_at.slice(0, 10) : r.date;
+          loaded.push({ id: r.id, fileName: r.file_name, supplier: r.supplier, date: r.date, uploadDate, total: r.total, items: Array.isArray(items) ? items : [] });
         }
         setResults(loaded);
       } catch(e) {}
@@ -269,7 +270,8 @@ function InvoiceScanner() {
           fileName: item.name, 
           thumb: item.thumb, 
           ...result,
-          date: result.date || getToday()
+          date: result.date || getToday(),
+          uploadDate: getToday()
         };
         setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: "done", data: result } : q));
         setResults(prev => [savedResult, ...prev]);
@@ -379,7 +381,7 @@ function InvoiceScanner() {
   };
 
   const waitingCount = queue.filter(q => q.status === "wait").length;
-  const filteredResults = filterDate ? results.filter(r => r.date === filterDate) : results;
+  const filteredResults = filterDate ? results.filter(r => (r.uploadDate || r.date) === filterDate) : results;
 
   return (
     <div>
