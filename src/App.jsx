@@ -168,7 +168,8 @@ function InvoiceScanner() {
   const [toast, setToast]               = useState(null);
   const [loadingDB, setLoadingDB]       = useState(true);
   const [previewImg, setPreviewImg]     = useState(null);
-  const [filterDate, setFilterDate]     = useState("");
+  const [editingItem, setEditingItem]   = useState(null); // {invoiceId, idx, field, value}
+  const [filterDate, setFilterDate]     = useState(getToday());
   const idRef                           = useRef(0);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
@@ -221,6 +222,22 @@ function InvoiceScanner() {
     await api("invoices", "DELETE", null, `?id=eq.${id}`);
     setResults(prev => prev.filter(r => r.id !== id));
     showToast("삭제됐습니다");
+  };
+
+  const updateItem = async (invoiceId, itemIdx, field, value) => {
+    setResults(prev => prev.map(r => {
+      if (r.id !== invoiceId) return r;
+      const newItems = [...(r.items||[])];
+      newItems[itemIdx] = { ...newItems[itemIdx], [field]: value };
+      return { ...r, items: newItems };
+    }));
+    setEditingItem(null);
+    // Supabase에도 업데이트 (item id 필요)
+    const result = results.find(r => r.id === invoiceId);
+    if (result?.items?.[itemIdx]?.id) {
+      await api("invoice_items", "PATCH", { [field]: value }, `?id=eq.${result.items[itemIdx].id}`);
+    }
+    showToast("수정됐습니다 ✓");
   };
 
   const handleFiles = async (files) => {
@@ -321,7 +338,7 @@ function InvoiceScanner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
-          generationConfig: { temperature: 0.05, maxOutputTokens: 8000 }
+          generationConfig: { temperature: 0.05, maxOutputTokens: 16000 }
         })
       }
     );
