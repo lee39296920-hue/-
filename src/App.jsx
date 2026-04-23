@@ -167,6 +167,7 @@ function InvoiceScanner() {
   const [progress, setProgress]         = useState({ done: 0, total: 0 });
   const [toast, setToast]               = useState(null);
   const [loadingDB, setLoadingDB]       = useState(true);
+  const [previewImg, setPreviewImg]     = useState(null);
   const idRef                           = useRef(0);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
@@ -245,7 +246,7 @@ function InvoiceScanner() {
         const base64 = item.thumb.split(",")[1];
         const result = await callGemini(geminiKey, base64, item.file.type || "image/jpeg");
         const dbId = await saveToDB(result, item.name);
-        const savedResult = { id: dbId || item.id, fileName: item.name, ...result };
+        const savedResult = { id: dbId || item.id, fileName: item.name, thumb: item.thumb, ...result };
         setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: "done", data: result } : q));
         setResults(prev => [savedResult, ...prev]);
       } catch (e) {
@@ -284,7 +285,7 @@ function InvoiceScanner() {
       "quantity": 수량숫자,
       "unit_price": 단가숫자,
       "amount": 금액숫자,
-      "insurance_code": "보험코드 숫자",
+      "insurance_code": "보험코드 (반드시 추출, 숫자 9자리, 명세서에 반드시 있음)",
       "lot": "제조번호",
       "expiry": "유효기한 YYYYMMDD"
     }
@@ -294,6 +295,7 @@ function InvoiceScanner() {
 주의:
 - 약품명은 인쇄된 글자를 매우 정확하게 읽어주세요. 비슷한 글자를 혼동하지 마세요 (넥↔벽, 시↔씨 등)
 - 한국 의약품 이름이므로 맥락을 고려해 정확히 읽어주세요
+- 보험코드는 각 약품마다 반드시 존재합니다. 표에서 숫자 9자리를 찾아 반드시 입력하세요
 - 수량은 손글씨 동그라미 숫자로 표기되는 경우가 많으니 잘 읽어주세요
 - 금액은 쉼표 없는 순수 숫자
 - 없는 항목은 빈 문자열 또는 0`;
@@ -477,12 +479,19 @@ function InvoiceScanner() {
         <div key={r.id} style={{ background: "#fff", borderRadius: 14, overflow: "hidden",
           boxShadow: "0 1px 6px rgba(0,0,0,0.06)", marginBottom: 12 }}>
           {/* 카드 헤더 */}
-          <div style={{ background: "#1e3a5f", padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{r.supplier || "도매상 미상"}</div>
-              <div style={{ color: "#93c5fd", fontSize: 12, marginTop: 2 }}>{r.date}</div>
+          <div style={{ background: "#1e3a5f", padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+              {r.thumb && (
+                <img src={r.thumb} alt="명세서" onClick={() => setPreviewImg(r.thumb)}
+                  style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", flexShrink: 0,
+                    border: "2px solid rgba(255,255,255,0.3)", cursor: "pointer" }} />
+              )}
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>{r.supplier || "도매상 미상"}</div>
+                <div style={{ color: "#93c5fd", fontSize: 12, marginTop: 2 }}>{r.date}</div>
+              </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
               <div style={{ color: "#e0f2fe", fontWeight: 700, fontSize: 14 }}>{fmtNum(r.total)}원</div>
               <button onClick={() => deleteResult(r.id)} className="btn"
                 style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 8,
@@ -554,6 +563,17 @@ function InvoiceScanner() {
           </div>
         </div>
       ))}
+
+      {/* 원본 이미지 전체화면 모달 */}
+      {previewImg && (
+        <div onClick={() => setPreviewImg(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)",
+          zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <img src={previewImg} alt="원본" style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 12, objectFit: "contain" }} />
+          <button onClick={() => setPreviewImg(null)} style={{ position: "absolute", top: 16, right: 16,
+            background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", borderRadius: "50%",
+            width: 36, height: 36, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+        </div>
+      )}
 
       {/* 토스트 */}
       {toast && (
