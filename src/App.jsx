@@ -228,18 +228,17 @@ function InvoiceScanner() {
     showToast("삭제됐습니다");
   };
 
-  const updateItem = async (invoiceId, itemIdx, field, value) => {
+  const updateItem = async (invoiceId, itemIdx, editedData) => {
     setResults(prev => prev.map(r => {
       if (r.id !== invoiceId) return r;
       const newItems = [...(r.items||[])];
-      newItems[itemIdx] = { ...newItems[itemIdx], [field]: value };
+      newItems[itemIdx] = { ...newItems[itemIdx], ...editedData };
       return { ...r, items: newItems };
     }));
     setEditingItem(null);
-    // Supabase에도 업데이트 (item id 필요)
     const result = results.find(r => r.id === invoiceId);
     if (result?.items?.[itemIdx]?.id) {
-      await api("invoice_items", "PATCH", { [field]: value }, `?id=eq.${result.items[itemIdx].id}`);
+      await api("invoice_items", "PATCH", editedData, `?id=eq.${result.items[itemIdx].id}`);
     }
     showToast("수정됐습니다 ✓");
   };
