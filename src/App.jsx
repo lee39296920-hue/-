@@ -327,6 +327,7 @@ function InvoiceScanner() {
 - 표에서 숫자 9자리를 찾아 빠짐없이 입력하세요
 
 [기타]:
+- 표에 몇 줄짜리 칸이 있든 상관없이 이미지에 보이는 모든 약품을 빠짐없이 추출하세요. 표 행 수에 절대 제한받지 마세요
 - 수량은 손글씨 동그라미 숫자로 표기됩니다
 - 금액은 쉼표 없는 순수 숫자
 - 없는 항목만 빈 문자열 또는 0`;
@@ -638,7 +639,23 @@ function InvoiceScanner() {
 function fileToDataURL(file) {
   return new Promise((res, rej) => {
     const reader = new FileReader();
-    reader.onload = () => res(reader.result);
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX = 1600;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        res(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.onerror = rej;
+      img.src = e.target.result;
+    };
     reader.onerror = rej;
     reader.readAsDataURL(file);
   });
