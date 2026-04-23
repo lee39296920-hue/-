@@ -168,7 +168,7 @@ function InvoiceScanner() {
   const [toast, setToast]               = useState(null);
   const [loadingDB, setLoadingDB]       = useState(true);
   const [previewImg, setPreviewImg]     = useState(null);
-  const [filterDate, setFilterDate]     = useState(getToday());
+  const [filterDate, setFilterDate]     = useState("");
   const idRef                           = useRef(0);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
@@ -361,15 +361,21 @@ function InvoiceScanner() {
   };
 
   const waitingCount = queue.filter(q => q.status === "wait").length;
-  const filteredResults = results.filter(r => r.date === filterDate);
+  const filteredResults = filterDate ? results.filter(r => r.date === filterDate) : results;
 
   return (
     <div>
       {/* 날짜 필터 */}
       <div style={{ background: "#fff", borderRadius: 14, padding: "12px 14px", marginBottom: 12,
-        boxShadow: "0 1px 6px rgba(0,0,0,0.06)", display: "flex", alignItems: "center", gap: 10 }}>
+        boxShadow: "0 1px 6px rgba(0,0,0,0.06)", display: "flex", alignItems: "center", gap: 8 }}>
         <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
           style={{ ...iStyle, flex: 1 }} />
+        <button onClick={() => setFilterDate("")} className="btn"
+          style={{ padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, flexShrink: 0,
+            background: filterDate === "" ? "#1e3a5f" : "#f1f5f9",
+            color: filterDate === "" ? "#fff" : "#64748b" }}>
+          전체
+        </button>
         <div style={{ fontSize: 12, fontWeight: 700, color: "#1e3a5f", flexShrink: 0 }}>
           {filteredResults.length}건
         </div>
