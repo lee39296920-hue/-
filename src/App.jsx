@@ -344,11 +344,11 @@ function InvoiceScanner() {
 - 없으면 빈 문자열
 
 [제조번호/유효기한 구분 - 매우 중요]:
-- lot(제조번호): 영문+숫자 혼합 코드 (예: WE1748, DPFD012, ADP9A0751, 8210003)
-- expiry(유효기한): 날짜 형식 YYYYMMDD (예: 20300422, 20270430)
-- 절대 날짜를 lot에 넣지 마세요. 날짜처럼 생긴 숫자(20로 시작하는 8자리)는 무조건 expiry입니다
-- 지오영 명세서는 "사용기한" 컬럼만 있음 → lot: "", expiry: 사용기한값
-- 다른 도매상은 제조번호와 유효기한 컬럼이 따로 있음
+- lot(제조번호): 명세서의 "제조번호" 컬럼 값 (예: WE1748, DPFD012, ADP9A0751, 8210003)
+- expiry(유효기한): 명세서의 "유효기한" 또는 "사용기한" 컬럼 값, YYYYMMDD 형식
+- 컬럼명을 기준으로 구분하세요. "제조번호" 컬럼값 → lot, "유효기한/사용기한" 컬럼값 → expiry
+- 지오영 명세서는 "사용기한" 컬럼만 있고 제조번호 컬럼 없음 → lot: "", expiry: 사용기한
+- 다른 도매상은 제조번호와 유효기한 컬럼이 따로 있으니 각각 해당 컬럼값을 넣으세요
 
 [기타]:
 - 수량은 손글씨 동그라미 숫자 (①②③ 형태)
@@ -380,15 +380,7 @@ function InvoiceScanner() {
           else if (code.length === 11) item.insurance_code = code.slice(2);
           else item.insurance_code = code;
         }
-        // 제조번호(lot)에 날짜가 들어간 경우 → expiry로 이동
-        if (item.lot) {
-          const lot = String(item.lot).replace(/[^0-9]/g, "");
-          if (lot.length === 8 && lot.startsWith("20")) {
-            // lot에 날짜가 잘못 들어간 경우
-            if (!item.expiry) item.expiry = lot;
-            item.lot = "";
-          }
-        }
+
         return item;
       });
     }
