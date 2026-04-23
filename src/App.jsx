@@ -257,7 +257,18 @@ function InvoiceScanner() {
     setIsRunning(false);
   };
 
-  const callGemini = async (apiKey, base64, mimeType) => {
+  const callGemini = async (apiKey, base64, mimeType, retries = 3) => {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        return await callGeminiOnce(apiKey, base64, mimeType);
+      } catch (e) {
+        if (attempt === retries) throw e;
+        await sleep(5000 * attempt); // 5초, 10초, 15초
+      }
+    }
+  };
+
+  const callGeminiOnce = async (apiKey, base64, mimeType) => {
     const prompt = `이 이미지는 한국 약국의 의약품 거래명세서입니다.
 아래 JSON 형식으로만 응답하세요. 다른 텍스트나 마크다운 없이 JSON만 출력하세요.
 
@@ -286,7 +297,7 @@ function InvoiceScanner() {
 - 없는 항목은 빈 문자열 또는 0`;
 
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
