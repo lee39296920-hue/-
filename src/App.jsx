@@ -320,11 +320,12 @@ function InvoiceScanner() {
   ]
 }
 
-[도매상 상호명 추출 - 매우 중요]:
-명세서 공급자 칸에서 "상호" 옆에 적힌 글자를 정확히 읽으세요. 절대 추측하지 마세요.
-- 지점명(서울지점, 영등포지점 등) 제외하고 본사명만
-- 주소, 지역명, 구청명 절대 금지
-- 보이는 상호명 그대로: 복산나이스→"복산나이스", 지오영→"지오영", 신덕팜→"신덕팜", 백제약품→"백제약품", 케이에스팜→"KS팜"
+[도매상 상호명]:
+명세서 왼쪽 공급자 칸 "상호" 항목의 글자를 있는 그대로 읽으세요. 절대 다른 이름으로 바꾸지 마세요.
+- 지점명(서울지점, 영등포지점 등)만 제거
+- 주식회사/(주) 제거 가능
+- 주소, 지역명 절대 금지
+- 예: "복산나이스 서울지점" → "복산나이스" / "지오영네트웍스(주)" → "지오영" / "(주)신덕팜" → "신덕팜"
 
 [약품명 추출 - 매우 중요]:
 - 품명 컬럼에서만 약품명을 읽으세요
@@ -342,11 +343,12 @@ function InvoiceScanner() {
 - 10자리 이상이면 앞의 행번호(1~12)를 제거하고 9자리만 사용하세요
 - 없으면 빈 문자열
 
-[제조번호/유효기한 구분]:
-- 제조번호(lot)와 유효기한(expiry)은 다른 항목입니다
-- 지오영 명세서는 "사용기한" 컬럼만 있고 제조번호 컬럼이 없습니다 → lot: "", expiry: 사용기한
-- 다른 도매상은 제조번호와 유효기한이 별도 컬럼으로 있습니다
-- 유효기한/사용기한은 expiry에, 제조번호(영문+숫자 혼합, 예: WE1748, DPFD012)는 lot에 넣으세요
+[제조번호/유효기한 구분 - 매우 중요]:
+- lot(제조번호): 영문+숫자 혼합 코드 (예: WE1748, DPFD012, ADP9A0751, 8210003)
+- expiry(유효기한): 날짜 형식 YYYYMMDD (예: 20300422, 20270430)
+- 절대 날짜를 lot에 넣지 마세요. 날짜처럼 생긴 숫자(20로 시작하는 8자리)는 무조건 expiry입니다
+- 지오영 명세서는 "사용기한" 컬럼만 있음 → lot: "", expiry: 사용기한값
+- 다른 도매상은 제조번호와 유효기한 컬럼이 따로 있음
 
 [기타]:
 - 수량은 손글씨 동그라미 숫자 (①②③ 형태)
@@ -368,14 +370,24 @@ function InvoiceScanner() {
     const data = await res.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
-    // 보험코드 후처리: 행번호 붙어서 10~11자리면 앞자리 제거해 9자리로
+    // 후처리
     if (parsed.items) {
       parsed.items = parsed.items.map(item => {
+        // 보험코드: 행번호 붙어서 10~11자리면 앞자리 제거해 9자리로
         if (item.insurance_code) {
           const code = String(item.insurance_code).replace(/ /g, "").replace(/[^0-9]/g, "");
           if (code.length === 10) item.insurance_code = code.slice(1);
           else if (code.length === 11) item.insurance_code = code.slice(2);
           else item.insurance_code = code;
+        }
+        // 제조번호(lot)에 날짜가 들어간 경우 → expiry로 이동
+        if (item.lot) {
+          const lot = String(item.lot).replace(/[^0-9]/g, "");
+          if (lot.length === 8 && lot.startsWith("20")) {
+            // lot에 날짜가 잘못 들어간 경우
+            if (!item.expiry) item.expiry = lot;
+            item.lot = "";
+          }
         }
         return item;
       });
