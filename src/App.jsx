@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
-const GEMINI_KEY = "AIzaSyDE5g8Epqa2m26Flj3n8qfLKIYBOCHWH_o";
-
 const SUPABASE_URL = "https://wiuwuacfpqmhjyzqekzl.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpdXd1YWNmcHFtaGp5enFla3psIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNDEzMjAsImV4cCI6MjA4OTkxNzMyMH0.oTRdx_TmTa3EyyyNbqu_lY0seTM2tHsk_rhLY_yPH6Q";
 
@@ -162,7 +160,7 @@ function SessionSection({ session, items, onToggle, onDelete, onCheckAll, onEdit
 
 // ===================== 거래명세서 스캐너 컴포넌트 =====================
 function InvoiceScanner() {
-  const [geminiKey, setGeminiKey]       = useState(GEMINI_KEY);
+  const [geminiKey, setGeminiKey]       = useState(() => localStorage.getItem("gemini_key") || "");
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [queue, setQueue]               = useState([]);
   const [results, setResults]           = useState([]);
@@ -176,7 +174,7 @@ function InvoiceScanner() {
   const idRef                           = useRef(0);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
-  const saveKey = (key) => { setGeminiKey(key); };
+  const saveKey = (key) => { setGeminiKey(key); localStorage.setItem("gemini_key", key); };
   const keyValid = geminiKey.startsWith("AIza") && geminiKey.length > 20;
 
   // Supabase에서 저장된 결과 불러오기
@@ -953,7 +951,7 @@ export default function App() {
         </div>
       )}
 
-      <div style={{ maxWidth: 520, margin: "0 auto", padding: "14px 14px 80px" }}>
+      <div style={{ maxWidth: activeTab === "invoice" ? 1100 : 520, margin: "0 auto", padding: "14px 14px 80px" }}>
 
         {loading && (
           <div style={{ textAlign: "center", padding: "40px 0", color: "#94a3b8" }}>
