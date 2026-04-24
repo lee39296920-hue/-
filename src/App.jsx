@@ -356,7 +356,7 @@ function InvoiceScanner() {
 - 빈 줄 무시, 실제 약품 행만 추출, 표 행 수 제한 없이 모든 약품 추출`;
 
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
