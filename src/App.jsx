@@ -246,7 +246,7 @@ function InvoiceScanner() {
   const handleFiles = async (files) => {
     const newItems = [];
     for (const file of files) {
-      const thumb = await fileToDataURL(file);
+      const thumb = await fileToDataURL(file, true);
       newItems.push({ id: ++idRef.current, file, thumb, name: file.name, status: "wait", data: null });
     }
     setQueue(prev => [...prev, ...newItems]);
@@ -702,7 +702,7 @@ function InvoiceScanner() {
   );
 }
 
-function fileToDataURL(file) {
+function fileToDataURL(file, enhance = false) {
   return new Promise((res, rej) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -720,6 +720,22 @@ function fileToDataURL(file) {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
         ctx.drawImage(img, 0, 0, w, h);
+
+        if (enhance) {
+          // 대비/선명도 향상 처리
+          const imageData = ctx.getImageData(0, 0, w, h);
+          const data = imageData.data;
+          for (let i = 0; i < data.length; i += 4) {
+            // 그레이스케일 변환
+            const gray = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+            // 대비 강화 (factor 1.5)
+            const contrast = 1.5;
+            const val = Math.min(255, Math.max(0, contrast * (gray - 128) + 128));
+            data[i] = val; data[i+1] = val; data[i+2] = val;
+          }
+          ctx.putImageData(imageData, 0, 0);
+        }
+
         res(canvas.toDataURL("image/jpeg", 0.95));
       };
       img.onerror = rej;
