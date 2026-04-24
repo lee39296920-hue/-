@@ -356,7 +356,7 @@ function InvoiceScanner() {
 - 빈 줄 무시, 실제 약품 행만 추출, 표 행 수 제한 없이 모든 약품 추출`;
 
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -709,15 +709,18 @@ function fileToDataURL(file) {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        const MAX = 1600;
+        const MAX = 2000;
         let w = img.width, h = img.height;
         if (w > MAX || h > MAX) {
           if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
           else { w = Math.round(w * MAX / h); h = MAX; }
         }
         canvas.width = w; canvas.height = h;
-        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-        res(canvas.toDataURL("image/jpeg", 0.85));
+        const ctx = canvas.getContext("2d");
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, w, h);
+        res(canvas.toDataURL("image/jpeg", 0.95));
       };
       img.onerror = rej;
       img.src = e.target.result;
